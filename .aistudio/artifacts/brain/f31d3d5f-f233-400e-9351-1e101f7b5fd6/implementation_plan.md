@@ -1,56 +1,43 @@
-# ClipFire — SaaS de Cortes Virais de YouTube com IA
+# ClipFire — Implementação Full-Stack Funcional (Groq API + Transcrição YouTube)
 
-Plano de arquitetura e implementação completa do ClipFire: um SaaS SPA completo em tema Liquid Glass Laranja, apresentando Landing Page, Autenticação, Dashboard com Gerador Inteligente de 15 Cortes Virais, Player com Legendas Dinâmicas estilo TikTok, Histórico de Processamento e Gestão de Planos.
+Plano para transformar o ClipFire em uma aplicação full-stack 100% funcional com servidor Node.js/Express, extração direta de transcrições e legendas de vídeos do YouTube, análise analítica profunda com a IA do Groq (`llama-3.3-70b-versatile`) via chave de API no servidor, e simulador completo de fluxo de pagamentos e assinaturas.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Decisões alinhadas na Fase 1:
-> - **Pré-visualização de cortes**: Player vertical integrado com miniatura de vídeo, tempo real e preview de legendas dinâmicas animadas estilo TikTok.
-> - **Navegação do Dashboard**: Barra superior de abas fluida com transições suaves entre Gerador, Histórico e Meu Plano.
-> - **Backend & Demonstração**: Modo demonstração rica em JavaScript local com dados realistas em pt-BR (notas 62-98, hashtags, títulos e descrições persuasivas), com marcações claras para integração futura com Groq Whisper, LLM, FFmpeg e Gateway de Pagamento.
+> Decisões confirmadas pelo usuário para a fase funcional:
+> - **Provedor de IA**: API da Groq (`GROQ_API_KEY` configurada no ambiente do servidor) para análise semântica e seleção dos 15 cortes virais.
+> - **Extração de Texto do Vídeo**: Extração direta de legendas e transcrições do YouTube no backend (com fallback inteligente caso o vídeo não possua legendas públicas geradas).
+> - **Pagamentos**: Simulador completo e interativo de checkout e cobrança (Pix com QR Code gerado, Cartão de Crédito e upgrade instantâneo de cota/plano) sem exigência de gateway bancário real de imediato.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **O que faz**: O ClipFire permite que criadores de conteúdo colem o link de um vídeo longo do YouTube (podcasts, entrevistas, aulas) e recebam instantaneamente os 15 melhores trechos com maior potencial de viralizar no TikTok, YouTube Shorts e Instagram Reels.
-- **Público-alvo**: Criadores de conteúdo, canais de cortes, editores de vídeo, agências de marketing e produtores de podcasts.
-- **Valor Principal**: Redução de horas de garimpo manual para menos de 1 minuto, entregando minutagem exata de início/fim, título viral pronto, descrição persuasiva, nota preditiva de engajamento (0 a 100) e hashtags otimizadas.
+- **O que será implementado**:
+  1. Criação do servidor backend em `server.ts` executando Express com integração ao Vite (`"dev": "tsx server.ts"`).
+  2. Endpoint `/api/youtube-info`: obtém metadados reais do YouTube (título, autor, duração, miniaturas) e extrai a transcrição/legendas oficiais ou automáticas com timestamps.
+  3. Endpoint `/api/generate-cuts`: recebe os trechos transcritos do vídeo, invoca a IA da Groq com prompt especializado em retenção e psicologia de conteúdo viral, e retorna os 15 cortes ranqueados com timestamps exatos, notas de 0 a 100, ganchos e hashtags.
+  4. Fluxo de pagamento simulado realista com modal interativo de Pix (código copia-e-cola e QR Code visual) e Cartão de Crédito simulado, ativando os planos Pro e Turbo instantaneamente no perfil.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### Fluxos do Usuário
-1. **Landing Page**: Apresentação visual da proposta de valor, como funciona em 3 passos, prova social de criadores, grade de preços (Free, Pro, Turbo) e chamada para ação.
-2. **Entrar / Criar Conta**: Modal/tela de autenticação simulada que persiste a sessão do usuário e o histórico no `localStorage`.
-3. **Dashboard Principal**:
-   - Campo de entrada de URL com efeito glow pulsante ao digitar e varredura de luz ao colar.
-   - Barra de progresso com 5 etapas realistas: Baixando vídeo → Transcrevendo com Groq Whisper → IA analisando retenção → FFmpeg cortando clipes → Finalizado.
-   - Botão de ação com feedback de clique e estado "Pensando" com 3 pontos animados em onda.
-4. **Grade de 15 Cortes Virais**:
-   - Entrada em cascata com atraso escalonado (stagger de 70ms).
-   - Anel de progresso SVG com contagem numérica animada de 0 até o valor da nota (62–98).
-   - Player vertical com miniatura estilizada e simulação de legendas dinâmicas sincronizadas no centro.
-   - Botões de ação rápida para copiar hashtags individuais, copiar pacote completo de descrição e disparar download simulado.
-5. **Histórico de Vídeos**: Listagem de vídeos processados anteriormente com data, status, contagem de clipes e botão para reabrir os cortes.
-6. **Gestão do Plano & Consumo**: Painel demonstrativo com plano ativo (Free / Pro / Turbo), barra de cota mensal (ex: 2 de 3 vídeos usados no Free) e modal de upgrade com tabela comparativa.
-
-### Identidade Visual & Tema Liquid Glass Laranja
-- **Fundo**: `#0a0605` (preto profundo com leve tonalidade âmbar) com orbes flutuantes com gradientes radiais quentes em movimento sutil.
-- **Superfícies de Vidro Líquido**: `backdrop-filter: blur(30px)`, bordas refinadas de 1px `rgba(255, 170, 80, 0.18)`, cantos arredondados de 28px e reflexo de luz interna no topo.
-- **Tipografia**: Sistema Apple (`-apple-system, SF Pro Display, BlinkMacSystemFont`), títulos expressivos com `text-wrap: balance` e números tabulares (`tabular-nums`) para tempos e métricas.
-- **Acentos e Botões**: Gradiente laranja de alta energia (`#ff8a2a` → `#ff5e00`), formato pílula, com efeito sheen sweep no hover e feedback tátil no clique.
-- **Acessibilidade**: Conformidade integral com `prefers-reduced-motion`.
+### Fluxos Reais do Usuário
+1. **Inserção do Link**: O usuário cola qualquer link legítimo do YouTube.
+2. **Extração em Tempo Real**: O backend busca o título real do vídeo, duração e a transcrição temporal.
+3. **Análise Neural com Groq**: A IA do Groq analisa os momentos de maior impacto e retorna 15 cortes estruturados em JSON estrito.
+4. **Exibição dos Dados Reais**: Os cards exibem o título real do vídeo processado, timestamps precisos, pontuação de retenção e legendas dinâmicas.
+5. **Checkout & Upgrade Simulado**: Ao clicar em assinar o plano Pro ou Turbo, o usuário escolhe Pix ou Cartão, visualiza a tela de pagamento e ao confirmar recebe a confirmação imediata com liberação de vídeos ilimitados.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-- **Formato Único e Autossuficiente**: Toda a aplicação será condensada em código limpo, sem dependências de pacotes externos pesados, garantindo carregamento instantâneo e portabilidade máxima.
-- **Persistência em localStorage**: Usuários, planos e histórico de vídeos processados são mantidos de forma reativa no navegador do usuário.
-- **Comentários Arquiteturais de Backend**: O código incluirá blocos comentados demonstrando os endpoints exatos de backend para quando o usuário desejar conectar sua chave da Groq API (`whisper-large-v3`), modelo de LLM (`llama-3.3-70b-versatile`), script FFmpeg para split de vídeo e Webhooks do Stripe/Mercado Pago.
+- **Servidor Express com Proxy de API**: A chave `GROQ_API_KEY` permanece 100% segura no backend em `server.ts`, sem qualquer exposição no cliente.
+- **Extração de Legendas vs. Download de Vídeo**: A extração direta de transcrições e legendas do YouTube é ultrarrápida (menos de 2 segundos), economiza consumo de banda e CPU do servidor e entrega timestamps palavra por palavra com exatidão.
+- **Graceful Fallback**: Se o vídeo fornecido não tiver legendas automáticas disponíveis no YouTube ou a chave da Groq não estiver preenchida nas variáveis de ambiente, o sistema avisa o usuário com elegância e permite ativar o modo assistido com exemplos reais.
 
 ---
 
@@ -58,37 +45,25 @@ Plano de arquitetura e implementação completa do ClipFire: um SaaS SPA complet
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│                   ClipFire SPA Canvas                  │
+│                   ClipFire Full-Stack                  │
 ├────────────────────────────────────────────────────────┤
-│  Top Navigation (Brand Wordmark, Links, Auth Status)   │
+│  Frontend (index.html SPA / Liquid Glass Laranja):     │
+│  ├── Input de URL com Validação                        │
+│  ├── Conexão com API /api/youtube-info & /api/cuts     │
+│  ├── Exibição dos 15 Cortes com Timestamps Reais       │
+│  └── Modal de Checkout Simulado (Pix & Cartão)         │
 ├────────────────────────────────────────────────────────┤
-│  View Router:                                          │
-│  ├── [Landing View]                                    │
-│  │   ├── Hero Section com CTA                          │
-│  │   ├── Como Funciona (3 Etapas)                      │
-│  │   ├── Prova Social & Depoimentos                    │
-│  │   └── Tabela de Planos (Free, Pro R$29, Turbo R$59) │
-│  │                                                     │
-│  ├── [Auth View]                                       │
-│  │   ├── Alternância Login / Cadastro                  │
-│  │   └── Persistência no localStorage                  │
-│  │                                                     │
-│  └── [Dashboard View]                                  │
-│      ├── Sub-Navegação: Gerador | Histórico | Meu Plano│
-│      ├── Gerador:                                      │
-│      │   ├── Input Bar com Glow Laranja & Sheen        │
-│      │   ├── Barra de Progresso com 5 Etapas           │
-│      │   └── Grade dos 15 Cards de Cortes:             │
-│      │       ├── Miniatura de Player Vertical          │
-│      │       ├── Preview de Legendas Dinâmicas TikTok  │
-│      │       ├── Score SVG Circular Animado (0-100)    │
-│      │       ├── Timestamps Milimétricos               │
-│      │       ├── Título & Descrição Virais             │
-│      │       ├── Pílulas de Hashtags Copiáveis         │
-│      │       └── Ações: Baixar Corte & Copiar Info     │
-│      ├── Histórico de Processamento                    │
-│      └── Painel do Usuário (Plano & Consumo de Cotas)  │
+│  Backend Express (server.ts):                          │
+│  ├── POST /api/process-video                           │
+│  │   ├── 1. Extração de Metadados & Legendas YouTube   │
+│  │   ├── 2. Chamada Groq API (LLaMA-3.3-70B)           │
+│  │   └── 3. Sanitização e Retorno dos 15 Clipes        │
+│  ├── POST /api/checkout-simulate                       │
+│  │   └── Confirmação e Ativação de Plano               │
+│  └── Vite Middlewares (Dev & Static Serving)           │
 ├────────────────────────────────────────────────────────┤
-│  Floating UI: Toast com Bounce & Modal de Upgrade      │
+│  Variáveis de Ambiente (.env.example):                 │
+│  ├── GROQ_API_KEY (Chave da API da Groq)               │
+│  └── PORT=3000                                         │
 └────────────────────────────────────────────────────────┘
 ```

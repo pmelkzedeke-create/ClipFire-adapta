@@ -1,6 +1,6 @@
 {
-  "summary": "Plano de implementação da arquitetura, design Liquid Glass e funcionalidades do SaaS ClipFire com 15 cortes virais, preview de player vertical com legendas dinâmicas, autenticação simulada e gestão de planos.",
-  "updatedAt": "2026-10-12T18:40:30.844726701Z",
+  "summary": "Plano de implementação para tornar o ClipFire 100% funcional: servidor Express full-stack, extração real de legendas/transcrição de vídeos do YouTube, integração server-side com Groq API (LLaMA-3) para seleção analítica de 15 cortes virais e simulador de pagamento completo.",
+  "updatedAt": "2026-10-12T19:01:20.698790434Z",
   "requestFeedback": true,
   "userFacing": true
 }
