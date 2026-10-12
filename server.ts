@@ -94,10 +94,63 @@ async function extractYouTubeTranscript(videoId: string): Promise<{ text: string
   }
 }
 
-// [BACKEND REAL: GROQ API - LLaMA-3.3-70B para seleção de ganchos virais e notas]
+// [BACKEND REAL: GROQ API - Seleção dinâmica de modelo compatível e análise viral]
+let cachedGroqModel: string | null = null;
+
+async function getBestGroqModel(apiKey: string): Promise<string> {
+  if (cachedGroqModel) return cachedGroqModel;
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const availableIds: string[] = (data.data || []).map((m: any) => m.id);
+
+      // Ordem de preferência de modelos Groq suportados
+      const candidates = [
+        'openai/gpt-oss-120b',
+        'llama-3.3-70b-versatile',
+        'llama-3.1-8b-instant',
+        'qwen/qwen3.8-27b',
+        'openai/gpt-oss-20b',
+        'llama3-70b-8192',
+        'llama3-8b-8192',
+      ];
+
+      for (const candidate of candidates) {
+        if (availableIds.includes(candidate)) {
+          cachedGroqModel = candidate;
+          console.log(`[Groq] Modelo selecionado com sucesso: ${cachedGroqModel}`);
+          return cachedGroqModel;
+        }
+      }
+
+      // Se nenhum dos candidatos específicos estiver na lista, pegar o primeiro modelo de texto válido
+      const textModel = availableIds.find(
+        (id) => !id.includes('whisper') && !id.includes('guard') && !id.includes('orpheus')
+      );
+      if (textModel) {
+        cachedGroqModel = textModel;
+        console.log(`[Groq] Modelo alternativo selecionado: ${cachedGroqModel}`);
+        return cachedGroqModel;
+      }
+    }
+  } catch (err) {
+    console.warn('[Groq] Erro ao listar modelos disponíveis:', err);
+  }
+
+  // Fallback padrão
+  cachedGroqModel = 'openai/gpt-oss-120b';
+  return cachedGroqModel;
+}
+
 async function analyzeWithGroqAI(videoTitle: string, author: string, transcriptSummary: string) {
   const groqApiKey = process.env.GROQ_API_KEY;
   if (!groqApiKey) return null;
+
+  const modelToUse = await getBestGroqModel(groqApiKey);
 
   const prompt = `Você é um editor sênior especialista em cortes virais para TikTok, Instagram Reels e YouTube Shorts.
 Analise as informações e a transcrição do vídeo do YouTube abaixo e selecione os 15 momentos de maior potencial viral.
@@ -119,7 +172,7 @@ Para cada um dos 15 cortes virais, forneça:
 8. captionWords: lista de 6 a 8 palavras-chave em caixa alta simulando a legenda dinâmica em destaque
 9. tags: lista de 5 hashtags virais relevantes com #
 
-Retorne OBRIGATORIAMENTE apenas um array JSON válido contendo exatamente 15 objetos, sem marcações markdown ao redor.`;
+Retorne OBRIGATORIAMENTE um objeto JSON com a chave "cuts" contendo exatamente 15 objetos, sem marcações markdown ao redor.`;
 
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -129,7 +182,7 @@ Retorne OBRIGATORIAMENTE apenas um array JSON válido contendo exatamente 15 obj
         Authorization: `Bearer ${groqApiKey}`,
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: modelToUse,
         messages: [
           { role: 'system', content: 'Você é um assistente de IA focado estritamente em gerar JSON válido sem texto adicional.' },
           { role: 'user', content: prompt },
@@ -142,7 +195,8 @@ Retorne OBRIGATORIAMENTE apenas um array JSON válido contendo exatamente 15 obj
 
     if (!response.ok) {
       const errText = await response.text();
-      console.warn('[Groq API Error]:', errText);
+      console.warn(`[Groq API Error no modelo ${modelToUse}]:`, errText);
+      cachedGroqModel = null;
       return null;
     }
 
@@ -151,9 +205,11 @@ Retorne OBRIGATORIAMENTE apenas um array JSON válido contendo exatamente 15 obj
     if (!content) return null;
 
     const parsed = JSON.parse(content);
-    // Extrai o array de cortes (caso venha em chave como "cuts", "segments", ou direto)
-    const cutsArray = Array.isArray(parsed) ? parsed : (parsed.cuts || parsed.segments || parsed.cortes || Object.values(parsed)[0]);
-    if (Array.isArray(cutsArray) && cutsArray.length >= 10) {
+    const cutsArray = Array.isArray(parsed)
+      ? parsed
+      : (parsed.cuts || parsed.segments || parsed.cortes || Object.values(parsed).find((v) => Array.isArray(v)));
+
+    if (Array.isArray(cutsArray) && cutsArray.length >= 8) {
       return cutsArray.slice(0, 15).map((c: any, i: number) => ({
         rank: i + 1,
         score: c.score || (98 - i * 2),
