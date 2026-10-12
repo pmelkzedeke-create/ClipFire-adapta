@@ -1,0 +1,3111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClipFire — Gerador de Cortes Virais de YouTube com IA</title>
+  <meta name="description" content="SaaS de cortes virais de YouTube com IA. Transcrição com Groq Whisper, análise de retenção e 15 cortes virais ranqueados com títulos e hashtags." />
+  <meta property="og:title" content="ClipFire — Gerador de Cortes Virais de YouTube com IA" />
+  <meta property="og:description" content="SaaS de cortes virais de YouTube com IA. Transcrição com Groq Whisper, análise de retenção e 15 cortes virais ranqueados com títulos e hashtags." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <style>
+    /* ==========================================================================
+       CLIPFIRE LIQUID GLASS TEMA LARANJA — VARIÁVEIS E BASE
+       ========================================================================== */
+    :root {
+      --cf-bg: #0a0605;
+      --cf-surface: rgba(24, 14, 10, 0.72);
+      --cf-surface-card: rgba(255, 170, 80, 0.04);
+      --cf-surface-card-hover: rgba(255, 170, 80, 0.08);
+      --cf-surface-elevated: rgba(18, 10, 7, 0.88);
+      --cf-border: rgba(255, 170, 80, 0.18);
+      --cf-border-bright: rgba(255, 185, 95, 0.38);
+      --cf-highlight: inset 0 1px 1px 0 rgba(255, 205, 150, 0.28);
+      --cf-shadow-soft: 0 16px 40px -12px rgba(0, 0, 0, 0.75);
+      --cf-shadow-glow: 0 0 35px rgba(255, 106, 0, 0.35);
+      
+      --cf-primary-grad: linear-gradient(135deg, #ff8a2a 0%, #ff5e00 100%);
+      --cf-primary-grad-hover: linear-gradient(135deg, #ffa04d 0%, #ff6e1a 100%);
+      --cf-accent: #ff6a00;
+      --cf-accent-amber: #ff9a3c;
+      --cf-accent-gold: #ffc470;
+      
+      --cf-text: #fdfcfa;
+      --cf-text-muted: #b8aba4;
+      --cf-text-dim: #7a6e67;
+      
+      --cf-radius-card: 28px;
+      --cf-radius-pill: 100px;
+      --cf-radius-inner: 16px;
+      
+      --cf-ease-apple: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--cf-bg);
+      color: var(--cf-text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      position: relative;
+    }
+
+    /* Ambient Liquid Glass Orbs (Vidro Vivo) */
+    .cf-orbs-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .cf-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.32;
+      will-change: transform;
+    }
+
+    .cf-orb-1 {
+      width: 580px;
+      height: 580px;
+      background: radial-gradient(circle, #ff6a00 0%, rgba(255, 106, 0, 0.16) 65%, transparent 80%);
+      top: -140px;
+      left: 15%;
+      animation: cf-float-1 22s ease-in-out infinite alternate;
+    }
+
+    .cf-orb-2 {
+      width: 540px;
+      height: 540px;
+      background: radial-gradient(circle, #ff9a3c 0%, rgba(255, 154, 60, 0.14) 65%, transparent 80%);
+      top: 38%;
+      right: -80px;
+      animation: cf-float-2 26s ease-in-out infinite alternate;
+    }
+
+    .cf-orb-3 {
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, #e65100 0%, rgba(255, 106, 0, 0.13) 75%, transparent 85%);
+      bottom: 5%;
+      left: -100px;
+      animation: cf-float-3 28s ease-in-out infinite alternate;
+    }
+
+    @keyframes cf-float-1 {
+      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+      50% { transform: translate(50px, 60px) scale(1.1) rotate(4deg); }
+      100% { transform: translate(65px, 85px) scale(1.14) rotate(6deg); }
+    }
+    @keyframes cf-float-2 {
+      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+      50% { transform: translate(-65px, -45px) scale(1.08) rotate(-5deg); }
+      100% { transform: translate(-85px, -65px) scale(1.06) rotate(-6deg); }
+    }
+    @keyframes cf-float-3 {
+      0% { transform: translate(0, 0) scale(1.04) rotate(0deg); }
+      50% { transform: translate(65px, -55px) scale(0.94) rotate(5deg); }
+      100% { transform: translate(90px, -70px) scale(1.1) rotate(-4deg); }
+    }
+
+    /* Container base */
+    .cf-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Header e Navegação Superior */
+    .cf-header {
+      position: sticky;
+      top: 1rem;
+      z-index: 60;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    .cf-header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      padding: 0.85rem 1.75rem;
+      background: rgba(14, 8, 6, 0.82);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid var(--cf-border);
+      border-radius: var(--cf-radius-pill);
+      box-shadow: var(--cf-highlight), 0 12px 35px rgba(0, 0, 0, 0.6);
+    }
+
+    .cf-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      text-decoration: none;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 1.28rem;
+      letter-spacing: -0.025em;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cf-logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--cf-primary-grad);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px rgba(255, 106, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    }
+
+    .cf-logo-mark svg {
+      width: 18px;
+      height: 18px;
+      fill: #ffffff;
+    }
+
+    .cf-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .cf-nav-link {
+      background: transparent;
+      border: none;
+      color: var(--cf-text-muted);
+      font-size: 0.92rem;
+      font-weight: 500;
+      padding: 0.45rem 0.9rem;
+      border-radius: var(--cf-radius-pill);
+      cursor: pointer;
+      transition: color 0.2s ease, background 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .cf-nav-link:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .cf-nav-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.32rem 0.85rem;
+      background: rgba(255, 106, 0, 0.12);
+      border: 1px solid rgba(255, 154, 60, 0.3);
+      border-radius: var(--cf-radius-pill);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--cf-accent-amber);
+    }
+
+    .cf-live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    /* Botões Pílula 100px */
+    .cf-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.6rem;
+      border-radius: var(--cf-radius-pill);
+      font-weight: 600;
+      font-size: 0.92rem;
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid transparent;
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+      user-select: none;
+      transition: transform 0.2s var(--cf-ease-apple), filter 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cf-btn:active {
+      transform: scale(0.96) !important;
+    }
+
+    .cf-btn-primary {
+      background: var(--cf-primary-grad);
+      color: #ffffff;
+      box-shadow: 0 6px 20px rgba(255, 94, 0, 0.42), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    }
+
+    .cf-btn-primary:hover {
+      filter: brightness(1.08);
+      box-shadow: 0 8px 26px rgba(255, 94, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+      transform: translateY(-1px);
+    }
+
+    .cf-btn-ghost {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: var(--cf-text);
+      backdrop-filter: blur(12px);
+    }
+
+    .cf-btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 170, 80, 0.35);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .cf-btn-sm {
+      padding: 0.45rem 1.1rem;
+      font-size: 0.82rem;
+    }
+
+    .cf-btn-block {
+      width: 100%;
+    }
+
+    /* Sheen Sweep no Hover */
+    .cf-sheen::after {
+      content: "";
+      position: absolute;
+      top: -50%;
+      left: -80%;
+      width: 40%;
+      height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+      transform: rotate(25deg);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .cf-sheen:hover::after {
+      opacity: 1;
+      animation: cf-sheen-sweep 0.85s var(--cf-ease-apple);
+    }
+
+    @keyframes cf-sheen-sweep {
+      0% { transform: translateX(0) rotate(25deg); }
+      100% { transform: translateX(380%) rotate(25deg); }
+    }
+
+    /* Ripple no clique */
+    .cf-ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.4);
+      transform: scale(0);
+      pointer-events: none;
+      animation: cf-ripple-pop 0.6s ease-out forwards;
+    }
+
+    @keyframes cf-ripple-pop {
+      0% { transform: scale(0); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+
+    /* Cards e Superfícies Translúcidas Liquid Glass */
+    .cf-glass-card {
+      background: var(--cf-surface-card);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: 1px solid var(--cf-border);
+      border-radius: var(--cf-radius-card);
+      box-shadow: var(--cf-highlight), var(--cf-shadow-soft);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s ease, background 0.3s ease, transform 0.3s var(--cf-ease-apple), box-shadow 0.3s ease;
+    }
+
+    .cf-glass-card:hover {
+      background: var(--cf-surface-card-hover);
+      border-color: var(--cf-border-bright);
+    }
+
+    /* Views do SPA */
+    .cf-view {
+      display: none;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.35s var(--cf-ease-apple), transform 0.35s var(--cf-ease-apple);
+      padding: 2.5rem 0 5rem;
+    }
+
+    .cf-view.cf-view-active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ==========================================================================
+       1. LANDING PAGE
+       ========================================================================== */
+    .cf-hero {
+      text-align: center;
+      max-width: 820px;
+      margin: 2rem auto 4.5rem;
+    }
+
+    .cf-hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 1.15rem;
+      background: rgba(255, 154, 60, 0.08);
+      border: 1px solid rgba(255, 170, 80, 0.25);
+      box-shadow: var(--cf-highlight);
+      border-radius: var(--cf-radius-pill);
+      font-size: 0.82rem;
+      color: var(--cf-accent-amber);
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(16px);
+    }
+
+    .cf-hero-title {
+      font-size: clamp(2.4rem, 5.2vw, 4.1rem);
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+      margin: 0 0 1.25rem;
+      color: #ffffff;
+      text-wrap: balance;
+    }
+
+    .cf-hero-title span {
+      background: linear-gradient(135deg, #ffffff 30%, #ffaa5b 75%, #ff5e00 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cf-hero-sub {
+      font-size: clamp(1.05rem, 2vw, 1.22rem);
+      color: var(--cf-text-muted);
+      line-height: 1.6;
+      margin: 0 auto 2.5rem;
+      max-width: 660px;
+    }
+
+    .cf-hero-actions {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* Como Funciona em 3 Passos */
+    .cf-section-header {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto 3rem;
+    }
+
+    .cf-section-title {
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.65rem;
+      color: #ffffff;
+    }
+
+    .cf-section-sub {
+      color: var(--cf-text-muted);
+      font-size: 1rem;
+    }
+
+    .cf-steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.75rem;
+      margin-bottom: 5.5rem;
+    }
+
+    .cf-step-card {
+      padding: 2.2rem 1.85rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cf-step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(255, 106, 0, 0.22), rgba(255, 154, 60, 0.08));
+      border: 1px solid rgba(255, 154, 60, 0.35);
+      color: var(--cf-accent-amber);
+      font-weight: 800;
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.4rem;
+      box-shadow: 0 4px 14px rgba(255, 106, 0, 0.2);
+    }
+
+    .cf-step-card h3 {
+      font-size: 1.22rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 0.6rem;
+    }
+
+    .cf-step-card p {
+      color: var(--cf-text-muted);
+      font-size: 0.94rem;
+      line-height: 1.55;
+    }
+
+    /* Prova Social */
+    .cf-social-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.75rem;
+      margin-bottom: 5.5rem;
+    }
+
+    .cf-social-card {
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .cf-stars {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 1rem;
+      color: #ff9d00;
+    }
+
+    .cf-quote {
+      font-size: 0.96rem;
+      line-height: 1.6;
+      color: #e5dbd5;
+      margin-bottom: 1.5rem;
+      font-style: italic;
+    }
+
+    .cf-creator-info {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .cf-avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff8a2a, #8e2de2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #ffffff;
+      border: 2px solid rgba(255, 170, 80, 0.35);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .cf-creator-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #ffffff;
+    }
+
+    .cf-creator-metric {
+      font-size: 0.8rem;
+      color: var(--cf-accent-amber);
+    }
+
+    /* Seção de Preços */
+    .cf-pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 1.75rem;
+      align-items: stretch;
+      margin-bottom: 5rem;
+    }
+
+    .cf-pricing-card {
+      padding: 2.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .cf-pricing-card.cf-pricing-featured {
+      border: 1.5px solid var(--cf-accent);
+      background: rgba(32, 16, 11, 0.82);
+      box-shadow: var(--cf-highlight), 0 20px 50px rgba(255, 94, 0, 0.22);
+      transform: scale(1.02);
+    }
+
+    .cf-popular-tag {
+      position: absolute;
+      top: -13px;
+      right: 24px;
+      background: var(--cf-primary-grad);
+      color: #ffffff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.3rem 0.9rem;
+      border-radius: var(--cf-radius-pill);
+      box-shadow: 0 4px 14px rgba(255, 94, 0, 0.45);
+    }
+
+    .cf-plan-name {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      color: #ffffff;
+    }
+
+    .cf-plan-desc {
+      font-size: 0.88rem;
+      color: var(--cf-text-muted);
+      margin-bottom: 1.6rem;
+      min-height: 42px;
+    }
+
+    .cf-plan-price {
+      font-size: 2.7rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 1.8rem;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .cf-plan-price span {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--cf-text-muted);
+    }
+
+    .cf-plan-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      margin-bottom: 2.2rem;
+      flex-grow: 1;
+    }
+
+    .cf-plan-features li {
+      font-size: 0.92rem;
+      color: #e5dbd5;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .cf-check {
+      color: var(--cf-accent-amber);
+      flex-shrink: 0;
+      stroke-width: 2.5;
+    }
+
+    /* ==========================================================================
+       2. LOGIN & CADASTRO (PERSISTÊNCIA EM LOCALSTORAGE)
+       ========================================================================== */
+    .cf-auth-wrap {
+      min-height: 70vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 0;
+    }
+
+    .cf-auth-card {
+      width: 100%;
+      max-width: 450px;
+      padding: 2.6rem 2.2rem;
+    }
+
+    .cf-auth-tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px;
+      border-radius: var(--cf-radius-pill);
+      margin-bottom: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .cf-auth-tab {
+      flex: 1;
+      text-align: center;
+      padding: 0.65rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: var(--cf-radius-pill);
+      color: var(--cf-text-muted);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+
+    .cf-auth-tab.cf-auth-active {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .cf-field {
+      margin-bottom: 1.35rem;
+    }
+
+    .cf-field label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--cf-text-muted);
+      margin-bottom: 0.45rem;
+    }
+
+    .cf-input-field {
+      width: 100%;
+      padding: 0.85rem 1.15rem;
+      background: rgba(18, 10, 7, 0.75);
+      border: 1px solid var(--cf-border);
+      border-radius: var(--cf-radius-inner);
+      color: #ffffff;
+      font-size: 0.98rem;
+      outline: none;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .cf-input-field:focus {
+      border-color: var(--cf-accent);
+      box-shadow: 0 0 16px rgba(255, 106, 0, 0.35);
+    }
+
+    /* ==========================================================================
+       3. DASHBOARD (GERADOR, HISTÓRICO, MEU PLANO)
+       ========================================================================== */
+    .cf-dash-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(255, 170, 80, 0.1);
+    }
+
+    .cf-subnav {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(16, 9, 6, 0.72);
+      padding: 5px;
+      border-radius: var(--cf-radius-pill);
+      border: 1px solid var(--cf-border);
+    }
+
+    .cf-subnav-btn {
+      padding: 0.55rem 1.2rem;
+      border-radius: var(--cf-radius-pill);
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--cf-text-muted);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      transition: all 0.2s ease;
+    }
+
+    .cf-subnav-btn.cf-subnav-active {
+      background: rgba(255, 106, 0, 0.22);
+      color: var(--cf-accent-amber);
+      border: 1px solid rgba(255, 154, 60, 0.4);
+      box-shadow: inset 0 1px 1px rgba(255, 205, 150, 0.2);
+    }
+
+    .cf-user-status {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .cf-user-greeting {
+      font-size: 0.92rem;
+      color: var(--cf-text-muted);
+    }
+
+    .cf-user-greeting strong {
+      color: #ffffff;
+    }
+
+    /* Campo de Entrada de URL com Glow Pulsante */
+    .cf-generator-card {
+      padding: 2.5rem 2.2rem;
+      margin-bottom: 3rem;
+    }
+
+    .cf-generator-header {
+      margin-bottom: 1.75rem;
+    }
+
+    .cf-generator-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      color: #ffffff;
+    }
+
+    .cf-generator-desc {
+      font-size: 0.94rem;
+      color: var(--cf-text-muted);
+    }
+
+    .cf-input-wrapper {
+      position: relative;
+      margin-bottom: 1.25rem;
+    }
+
+    .cf-input-container {
+      display: flex;
+      align-items: center;
+      position: relative;
+      background: rgba(18, 10, 6, 0.85);
+      border: 1px solid var(--cf-border);
+      border-radius: var(--cf-radius-pill);
+      padding: 0.45rem 0.45rem 0.45rem 1.4rem;
+      backdrop-filter: blur(32px);
+      box-shadow: var(--cf-highlight), 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      overflow: hidden;
+    }
+
+    /* Glow pulsante quando começa a digitar */
+    .cf-input-container.cf-active-glow {
+      border-color: rgba(255, 140, 40, 0.7);
+      box-shadow: 0 0 0 1px rgba(255, 140, 40, 0.45), 
+                  0 0 35px rgba(255, 110, 0, 0.45),
+                  var(--cf-highlight);
+      animation: cf-pulse-glow 2.4s ease-in-out infinite;
+    }
+
+    @keyframes cf-pulse-glow {
+      0%, 100% {
+        box-shadow: 0 0 0 1px rgba(255, 140, 40, 0.45), 0 0 25px rgba(255, 110, 0, 0.3), var(--cf-highlight);
+      }
+      50% {
+        box-shadow: 0 0 0 1px rgba(255, 160, 60, 0.8), 0 0 40px rgba(255, 110, 0, 0.55), var(--cf-highlight);
+      }
+    }
+
+    .cf-input-sheen {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -100%;
+      width: 50%;
+      background: linear-gradient(90deg, transparent, rgba(255, 205, 140, 0.4), transparent);
+      transform: skewX(-20deg);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .cf-input-sheen.cf-animate-sheen {
+      animation: cf-sheen-sweep 0.8s var(--cf-ease-apple) forwards;
+    }
+
+    .cf-input-icon {
+      flex-shrink: 0;
+      color: var(--cf-text-muted);
+      margin-right: 0.85rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .cf-url-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ffffff;
+      font-size: 1.05rem;
+      font-family: inherit;
+      min-width: 0;
+      padding: 0.6rem 0;
+    }
+
+    .cf-url-input::placeholder {
+      color: var(--cf-text-dim);
+    }
+
+    .cf-btn-generate {
+      flex-shrink: 0;
+      z-index: 2;
+    }
+
+    .cf-error-box {
+      color: #ff6b6b;
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-top: 0.65rem;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      min-height: 22px;
+    }
+
+    .cf-error-box.cf-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Barra de Progresso com Shimmer e Etapas */
+    .cf-processing-card {
+      margin-top: 2rem;
+      padding: 2rem;
+      background: rgba(14, 8, 5, 0.88);
+      border: 1px solid var(--cf-border-bright);
+      border-radius: var(--cf-radius-card);
+      display: none;
+      animation: cf-scale-in 0.4s var(--cf-ease-apple) forwards;
+    }
+
+    @keyframes cf-scale-in {
+      0% { opacity: 0; transform: scale(0.97) translateY(10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .cf-processing-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .cf-thinking-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(10, 6, 5, 0.7);
+      border: 1px solid rgba(255, 170, 80, 0.25);
+      padding: 0.4rem 0.95rem;
+      border-radius: var(--cf-radius-pill);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    /* 3 Pontos Animados em Onda (Thinking State) */
+    .cf-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .cf-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--cf-accent-amber);
+      animation: cf-dot-wave 1.4s infinite ease-in-out both;
+    }
+
+    .cf-dot:nth-child(1) { animation-delay: -0.32s; }
+    .cf-dot:nth-child(2) { animation-delay: -0.16s; }
+    .cf-dot:nth-child(3) { animation-delay: 0s; }
+
+    @keyframes cf-dot-wave {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1.15) translateY(-2px); opacity: 1; }
+    }
+
+    .cf-eta-text {
+      font-size: 0.88rem;
+      color: var(--cf-accent-amber);
+      font-weight: 500;
+    }
+
+    /* Barra com Shimmer Sweep */
+    .cf-progress-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 1.8rem;
+      position: relative;
+    }
+
+    .cf-progress-fill {
+      width: 0%;
+      height: 100%;
+      background: var(--cf-primary-grad);
+      border-radius: 99px;
+      transition: width 0.35s var(--cf-ease-apple);
+      box-shadow: 0 0 14px rgba(255, 106, 0, 0.7);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cf-progress-fill::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 50%, transparent 100%);
+      transform: translateX(-100%);
+      animation: cf-shimmer-sweep 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes cf-shimmer-sweep {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .cf-steps-list {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .cf-step-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.88rem;
+      color: var(--cf-text-dim);
+      transition: color 0.3s ease;
+    }
+
+    .cf-step-item.cf-step-active {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .cf-step-item.cf-step-done {
+      color: var(--cf-text-muted);
+    }
+
+    .cf-step-check {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 170, 80, 0.08);
+      border: 1px solid rgba(255, 170, 80, 0.2);
+      flex-shrink: 0;
+      font-size: 0.75rem;
+      font-weight: 700;
+      transition: all 0.3s ease;
+    }
+
+    .cf-step-item.cf-step-active .cf-step-check {
+      border-color: var(--cf-accent);
+      background: rgba(255, 106, 0, 0.25);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(255, 106, 0, 0.6);
+    }
+
+    .cf-step-item.cf-step-done .cf-step-check {
+      border-color: #10b981;
+      background: #10b981;
+      color: #ffffff;
+    }
+
+    /* ==========================================================================
+       4. GRADE E CARD DE CORTE (15 CORTES VIRAIS)
+       ========================================================================== */
+    .cf-results-section {
+      display: none;
+      margin-top: 3rem;
+    }
+
+    .cf-results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding: 1.25rem 1.85rem;
+      background: rgba(18, 10, 6, 0.75);
+      border: 1px solid var(--cf-border);
+      border-radius: 20px;
+      backdrop-filter: blur(28px);
+    }
+
+    .cf-results-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .cf-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 1.75rem;
+    }
+
+    /* Card de Corte com Entrada em Cascata Stagger 70ms */
+    .cf-card {
+      padding: 1.6rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      opacity: 0;
+      transform: translateY(35px) scale(0.96);
+    }
+
+    .cf-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--cf-highlight), 0 26px 50px -15px rgba(0, 0, 0, 0.85), 0 0 30px rgba(255, 106, 0, 0.2);
+    }
+
+    /* Player Vertical Simulado com Legenda Dinâmica TikTok */
+    .cf-card-player {
+      position: relative;
+      height: 200px;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(180deg, rgba(32, 16, 10, 0.95) 0%, rgba(14, 7, 4, 0.98) 100%);
+      border: 1px solid rgba(255, 170, 80, 0.16);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+      user-select: none;
+    }
+
+    .cf-player-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 106, 0, 0.18), transparent 75%);
+    }
+
+    .cf-play-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--cf-primary-grad);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 18px rgba(255, 106, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+      transition: transform 0.25s var(--cf-ease-apple), filter 0.2s ease;
+      z-index: 2;
+      border: none;
+      cursor: pointer;
+    }
+
+    .cf-play-btn svg {
+      width: 22px;
+      height: 22px;
+      margin-left: 2px;
+    }
+
+    .cf-card:hover .cf-play-btn {
+      transform: scale(1.12);
+      filter: brightness(1.1);
+    }
+
+    /* Legenda Dinâmica Animada Estilo TikTok no Preview */
+    .cf-caption-preview {
+      position: absolute;
+      bottom: 28px;
+      left: 14px;
+      right: 14px;
+      text-align: center;
+      z-index: 2;
+      font-weight: 900;
+      font-size: 0.92rem;
+      line-height: 1.3;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.8);
+    }
+
+    .cf-cap-word {
+      display: inline-block;
+      margin: 0 2px;
+      color: #ffffff;
+      transition: color 0.2s, transform 0.2s;
+    }
+
+    .cf-cap-word.cf-cap-highlight {
+      color: #ffd700;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 1px 5px;
+      border-radius: 4px;
+      transform: scale(1.08);
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+
+    .cf-player-pill-dur {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      padding: 0.2rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      z-index: 2;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Top do Card: Ranking + Anel de Score Animado */
+    .cf-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .cf-rank-badge {
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      padding: 0.35rem 0.8rem;
+      background: rgba(255, 106, 0, 0.15);
+      border: 1px solid rgba(255, 154, 60, 0.35);
+      border-radius: var(--cf-radius-pill);
+      color: var(--cf-accent-gold);
+      box-shadow: inset 0 1px 1px rgba(255, 205, 150, 0.2);
+    }
+
+    /* Anel de Score SVG */
+    .cf-score-wrap {
+      position: relative;
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cf-score-svg {
+      width: 56px;
+      height: 56px;
+      transform: rotate(-90deg);
+    }
+
+    .cf-score-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-width: 4;
+    }
+
+    .cf-score-circle {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 157; /* 2 * PI * 25 */
+      stroke-dashoffset: 157;
+      transition: stroke-dashoffset 1.4s var(--cf-ease-apple);
+    }
+
+    .cf-score-inner {
+      position: absolute;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cf-score-num {
+      font-size: 1.05rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #ffffff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cf-score-label {
+      font-size: 0.55rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--cf-text-dim);
+      margin-top: 1px;
+    }
+
+    .cf-time-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: #ded6d0;
+      background: rgba(14, 8, 6, 0.6);
+      border: 1px solid rgba(255, 170, 80, 0.16);
+      padding: 0.3rem 0.7rem;
+      border-radius: var(--cf-radius-pill);
+      margin-bottom: 0.85rem;
+      align-self: flex-start;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cf-time-badge svg {
+      width: 12px;
+      height: 12px;
+      color: var(--cf-accent-amber);
+    }
+
+    .cf-card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.35;
+      margin: 0 0 0.65rem;
+      color: #ffffff;
+      letter-spacing: -0.015em;
+    }
+
+    .cf-card-desc {
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: var(--cf-text-muted);
+      margin: 0 0 1.1rem;
+      flex-grow: 1;
+    }
+
+    .cf-tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-bottom: 1.35rem;
+    }
+
+    .cf-tag-pill {
+      font-size: 0.75rem;
+      color: var(--cf-accent-gold);
+      background: rgba(255, 106, 0, 0.12);
+      border: 1px solid rgba(255, 154, 60, 0.25);
+      padding: 0.25rem 0.65rem;
+      border-radius: var(--cf-radius-pill);
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid rgba(255, 154, 60, 0.25);
+      transition: transform 0.2s var(--cf-ease-apple), background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cf-tag-pill:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 106, 0, 0.28);
+      border-color: rgba(255, 154, 60, 0.6);
+      box-shadow: 0 4px 12px rgba(255, 106, 0, 0.35);
+    }
+
+    .cf-card-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.65rem;
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    @keyframes cf-card-cascade {
+      0% { opacity: 0; transform: translateY(35px) scale(0.96); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ==========================================================================
+       5. HISTÓRICO DE PROCESSAMENTO
+       ========================================================================== */
+    .cf-history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .cf-history-item {
+      padding: 1.5rem 1.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .cf-history-item:hover {
+      border-color: var(--cf-border-bright);
+    }
+
+    .cf-history-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 0.3rem;
+    }
+
+    .cf-history-meta {
+      font-size: 0.85rem;
+      color: var(--cf-text-muted);
+    }
+
+    .cf-empty-state {
+      text-align: center;
+      padding: 5rem 2rem;
+    }
+
+    .cf-empty-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: rgba(255, 106, 0, 0.12);
+      border: 1px solid rgba(255, 154, 60, 0.3);
+      color: var(--cf-accent-amber);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+    }
+
+    /* ==========================================================================
+       6. PAINEL DO USUÁRIO & PLANO ATUAL
+       ========================================================================== */
+    .cf-user-panel-card {
+      padding: 2.5rem 2rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .cf-user-panel-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.8rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .cf-panel-title-label {
+      font-size: 0.82rem;
+      color: var(--cf-text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .cf-panel-plan-name {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin-top: 0.25rem;
+    }
+
+    .cf-quota-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.92rem;
+      margin-bottom: 0.65rem;
+    }
+
+    .cf-quota-bar-track {
+      height: 9px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+
+    .cf-quota-bar-fill {
+      height: 100%;
+      background: var(--cf-primary-grad);
+      border-radius: 99px;
+      transition: width 0.4s var(--cf-ease-apple);
+    }
+
+    /* Tabela Comparativa de Recursos */
+    .cf-compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5rem;
+      font-size: 0.92rem;
+    }
+
+    .cf-compare-table th,
+    .cf-compare-table td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: left;
+    }
+
+    .cf-compare-table th {
+      color: var(--cf-accent-amber);
+      font-weight: 700;
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .cf-compare-table tr:hover td {
+      background: rgba(255, 170, 80, 0.03);
+    }
+
+    /* ==========================================================================
+       TOAST DE NOTIFICAÇÃO COM BOUNCE & MODAL DE UPGRADE
+       ========================================================================== */
+    .cf-toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(50px);
+      background: rgba(16, 9, 6, 0.96);
+      border: 1px solid rgba(255, 154, 60, 0.4);
+      color: #ffffff;
+      padding: 0.85rem 1.6rem;
+      border-radius: var(--cf-radius-pill);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.85), 0 0 25px rgba(255, 106, 0, 0.25), var(--cf-highlight);
+      backdrop-filter: blur(24px);
+      font-size: 0.92rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.28s ease;
+    }
+
+    .cf-toast.cf-toast-show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .cf-toast svg {
+      width: 18px;
+      height: 18px;
+      color: var(--cf-accent-amber);
+      flex-shrink: 0;
+    }
+
+    /* Modal de Upgrade */
+    .cf-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(14px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .cf-modal-backdrop.cf-modal-open {
+      display: flex;
+    }
+
+    .cf-modal-box {
+      max-width: 500px;
+      width: 100%;
+      padding: 2.5rem 2.2rem;
+      text-align: center;
+      animation: cf-scale-in 0.35s var(--cf-ease-apple);
+    }
+
+    .cf-modal-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(255, 106, 0, 0.16);
+      color: var(--cf-accent-amber);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      border: 1px solid rgba(255, 154, 60, 0.35);
+    }
+
+    /* Scroll Reveal */
+    .cf-reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s var(--cf-ease-apple), transform 0.7s var(--cf-ease-apple);
+    }
+
+    .cf-reveal.cf-revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Rodapé */
+    .cf-footer {
+      border-top: 1px solid rgba(255, 170, 80, 0.12);
+      padding: 3rem 0;
+      margin-top: 5rem;
+      text-align: center;
+      color: var(--cf-text-dim);
+      font-size: 0.88rem;
+    }
+
+    .cf-footer a {
+      color: var(--cf-text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .cf-footer a:hover {
+      color: #ffffff;
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+      .cf-header-inner {
+        padding: 0.75rem 1.25rem;
+      }
+      .cf-nav-links {
+        gap: 0.4rem;
+      }
+      .cf-input-container {
+        flex-direction: column;
+        border-radius: 24px;
+        padding: 0.85rem;
+        gap: 0.75rem;
+      }
+      .cf-url-input {
+        width: 100%;
+        text-align: center;
+      }
+      .cf-btn-generate {
+        width: 100%;
+      }
+      .cf-card-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Acessibilidade: prefers-reduced-motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001s !important;
+      }
+      .cf-orb, .cf-card, .cf-reveal, .cf-dot {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Liquid Glass Orbs -->
+  <div class="cf-orbs-container" aria-hidden="true">
+    <div class="cf-orb cf-orb-1"></div>
+    <div class="cf-orb cf-orb-2"></div>
+    <div class="cf-orb cf-orb-3"></div>
+  </div>
+
+  <!-- Header Fixo / Barra de Navegação -->
+  <header class="cf-header">
+    <div class="cf-header-inner">
+      <div class="cf-logo" onclick="window.cfNavigate('landing')" role="button" tabindex="0">
+        <div class="cf-logo-mark">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+          </svg>
+        </div>
+        <span>ClipFire</span>
+      </div>
+
+      <!-- Links Públicos (Visitante) -->
+      <div id="cf-nav-guest" class="cf-nav-links">
+        <button type="button" class="cf-nav-link" onclick="window.cfScrollTo('cf-como-funciona')">Como funciona</button>
+        <button type="button" class="cf-nav-link" onclick="window.cfScrollTo('cf-planos')">Planos</button>
+        <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfNavigate('auth', 'login')">Entrar</button>
+        <button type="button" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfNavigate('auth', 'register')">Criar conta</button>
+      </div>
+
+      <!-- Links Autenticados (Usuário Logado) -->
+      <div id="cf-nav-user" class="cf-nav-links" style="display: none;">
+        <button type="button" class="cf-nav-link" onclick="window.cfNavigate('dashboard', 'generator')">Gerador</button>
+        <button type="button" class="cf-nav-link" onclick="window.cfNavigate('dashboard', 'history')">Histórico</button>
+        <button type="button" class="cf-nav-link" onclick="window.cfNavigate('dashboard', 'plan')">Meu Plano</button>
+        <span class="cf-nav-badge" id="cf-nav-plan-badge">Free</span>
+        <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfLogout()">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Container Principal das Telas (SPA) -->
+  <main class="cf-container">
+
+    <!-- ======================================================================
+         TELA 1: LANDING PAGE
+         ====================================================================== -->
+    <section id="cf-view-landing" class="cf-view cf-view-active">
+      <!-- Hero -->
+      <div class="cf-hero">
+        <div class="cf-hero-kicker">
+          <span class="cf-live-dot"></span>
+          <span>Groq Whisper + Análise de Retenção Neural</span>
+        </div>
+
+        <h1 class="cf-hero-title">
+          Transforme qualquer vídeo em <span>15 cortes virais irresistíveis</span>
+        </h1>
+
+        <p class="cf-hero-sub">
+          Cole o link de podcasts, entrevistas ou aulas do YouTube. Nossa IA transcreve palavra por palavra e pinça os 15 momentos exatos com maior potencial para TikTok, Shorts e Reels.
+        </p>
+
+        <div class="cf-hero-actions">
+          <button type="button" class="cf-btn cf-btn-primary cf-sheen" onclick="window.cfHandleHeroCTA()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+            </svg>
+            <span>Gerar cortes virais agora</span>
+          </button>
+          <button type="button" class="cf-btn cf-btn-ghost" onclick="window.cfScrollTo('cf-como-funciona')">
+            <span>Ver demonstração</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Como Funciona (3 Passos) -->
+      <div id="cf-como-funciona" class="cf-section-header cf-reveal">
+        <h2 class="cf-section-title">Como funciona em 3 passos</h2>
+        <p class="cf-section-sub">De 1 hora de podcast para 15 vídeos prontos para publicação em segundos</p>
+      </div>
+
+      <div class="cf-steps-grid">
+        <div class="cf-glass-card cf-step-card cf-reveal">
+          <div class="cf-step-num">1</div>
+          <h3>Cole o link do YouTube</h3>
+          <p>Insira a URL de qualquer vídeo do YouTube no campo do gerador sem precisar baixar nada manualmente.</p>
+        </div>
+
+        <div class="cf-glass-card cf-step-card cf-reveal">
+          <div class="cf-step-num">2</div>
+          <h3>Groq Whisper transcreve tudo</h3>
+          <p>O áudio é transcrito palavra por palavra com timestamps milimétricos e analisado por IA em busca de ganchos de alta retenção.</p>
+        </div>
+
+        <div class="cf-glass-card cf-step-card cf-reveal">
+          <div class="cf-step-num">3</div>
+          <h3>15 cortes prontos com score</h3>
+          <p>Receba clipes ordenados de 0 a 100 por potencial viral, com títulos magnéticos, legendas sincronizadas e hashtags copiáveis.</p>
+        </div>
+      </div>
+
+      <!-- Prova Social -->
+      <div class="cf-section-header cf-reveal">
+        <h2 class="cf-section-title">Criadores que explodiram em visualizações</h2>
+        <p class="cf-section-sub">Resultados reais de quem usa o ClipFire diariamente</p>
+      </div>
+
+      <div class="cf-social-grid">
+        <div class="cf-glass-card cf-social-card cf-reveal">
+          <div>
+            <div class="cf-stars">★★★★★</div>
+            <p class="cf-quote">"Passei de 12 mil para mais de 1.8 milhão de visualizações no TikTok no primeiro mês. O ranqueamento das notas me poupa 20 horas de corte por semana."</p>
+          </div>
+          <div class="cf-creator-info">
+            <div class="cf-avatar">LM</div>
+            <div>
+              <div class="cf-creator-name">Lucas Mendes</div>
+              <div class="cf-creator-metric">+1.8M views · Podcaster</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cf-glass-card cf-social-card cf-reveal">
+          <div>
+            <div class="cf-stars">★★★★★</div>
+            <p class="cf-quote">"Os títulos que a IA sugere já vêm no ponto certo de curiosidade sem ser apelativo. A precisão do corte no segundo exato onde a história começa é surreal."</p>
+          </div>
+          <div class="cf-creator-info">
+            <div class="cf-avatar" style="background: linear-gradient(135deg, #ff5e00, #ff007f);">CD</div>
+            <div>
+              <div class="cf-creator-name">Camila Duarte</div>
+              <div class="cf-creator-metric">Agência de Cortes Pro · 45 clientes</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cf-glass-card cf-social-card cf-reveal">
+          <div>
+            <div class="cf-stars">★★★★★</div>
+            <p class="cf-quote">"A pré-visualização das legendas estilo TikTok agiliza muito a aprovação interna com nossa equipe. Melhor investimento do canal."</p>
+          </div>
+          <div class="cf-creator-info">
+            <div class="cf-avatar" style="background: linear-gradient(135deg, #ffaa00, #ff3300);">RF</div>
+            <div>
+              <div class="cf-creator-name">Rafael Furlan</div>
+              <div class="cf-creator-metric">Canal Negócios Exponenciais</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seção de Preços -->
+      <div id="cf-planos" class="cf-section-header cf-reveal">
+        <h2 class="cf-section-title">Planos acessíveis para todo criador</h2>
+        <p class="cf-section-sub">Comece grátis e escale sua produção de cortes verticais</p>
+      </div>
+
+      <div class="cf-pricing-grid">
+        <!-- Plano Free -->
+        <div class="cf-glass-card cf-pricing-card cf-reveal">
+          <div class="cf-plan-name">Free</div>
+          <div class="cf-plan-desc">Para quem deseja testar o poder de viralização dos seus vídeos.</div>
+          <div class="cf-plan-price">R$ 0 <span>/mês</span></div>
+          <ul class="cf-plan-features">
+            <li><span class="cf-check">✓</span> 3 vídeos processados por mês</li>
+            <li><span class="cf-check">✓</span> 15 cortes virais por vídeo</li>
+            <li><span class="cf-check">✓</span> Títulos persuasivos e hashtags com IA</li>
+            <li><span class="cf-check">✓</span> Marca d'água discreta nos clipes</li>
+          </ul>
+          <button type="button" class="cf-btn cf-btn-ghost cf-btn-block" onclick="window.cfSelectPlan('Free')">
+            Começar Grátis
+          </button>
+        </div>
+
+        <!-- Plano Pro -->
+        <div class="cf-glass-card cf-pricing-card cf-pricing-featured cf-reveal">
+          <div class="cf-popular-tag">Mais Escolhido</div>
+          <div class="cf-plan-name">Pro</div>
+          <div class="cf-plan-desc">Para criadores e editores que buscam escala diária e visual limpo.</div>
+          <div class="cf-plan-price">R$ 29 <span>/mês</span></div>
+          <ul class="cf-plan-features">
+            <li><span class="cf-check">✓</span> <strong>Vídeos ilimitados por mês</strong></li>
+            <li><span class="cf-check">✓</span> 15 cortes virais com nota 0–100</li>
+            <li><span class="cf-check">✓</span> <strong>Sem marca d'água ClipFire</strong></li>
+            <li><span class="cf-check">✓</span> Exportação em qualidade 4K nativa</li>
+            <li><span class="cf-check">✓</span> Suporte técnico prioritário</li>
+          </ul>
+          <button type="button" class="cf-btn cf-btn-primary cf-btn-block cf-sheen" onclick="window.cfSelectPlan('Pro')">
+            Assinar Plano Pro
+          </button>
+        </div>
+
+        <!-- Plano Turbo -->
+        <div class="cf-glass-card cf-pricing-card cf-reveal">
+          <div class="cf-plan-name">Turbo</div>
+          <div class="cf-plan-desc">Potência total para agências, estúdios e times de alta produção.</div>
+          <div class="cf-plan-price">R$ 59 <span>/mês</span></div>
+          <ul class="cf-plan-features">
+            <li><span class="cf-check">✓</span> Tudo incluso no plano Pro</li>
+            <li><span class="cf-check">✓</span> <strong>Legendas dinâmicas automáticas (TikTok)</strong></li>
+            <li><span class="cf-check">✓</span> Acesso completo à API de automação</li>
+            <li><span class="cf-check">✓</span> Renderização acelerada em servidores GPU</li>
+          </ul>
+          <button type="button" class="cf-btn cf-btn-ghost cf-btn-block" onclick="window.cfSelectPlan('Turbo')">
+            Assinar Plano Turbo
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         TELA 2: LOGIN / CADASTRO
+         ====================================================================== -->
+    <section id="cf-view-auth" class="cf-view">
+      <div class="cf-auth-wrap">
+        <div class="cf-glass-card cf-auth-card">
+          <div class="cf-auth-tabs">
+            <button type="button" id="cf-tab-login" class="cf-auth-tab cf-auth-active" onclick="window.cfSwitchAuthTab('login')">Entrar</button>
+            <button type="button" id="cf-tab-register" class="cf-auth-tab" onclick="window.cfSwitchAuthTab('register')">Criar Conta</button>
+          </div>
+
+          <form id="cf-auth-form" onsubmit="event.preventDefault(); window.cfSubmitAuth();">
+            <div id="cf-auth-name-group" class="cf-field" style="display: none;">
+              <label for="cf-auth-name">Nome completo</label>
+              <input type="text" id="cf-auth-name" class="cf-input-field" placeholder="Seu nome ou canal">
+            </div>
+
+            <div class="cf-field">
+              <label for="cf-auth-email">E-mail</label>
+              <input type="email" id="cf-auth-email" class="cf-input-field" placeholder="criador@exemplo.com" required>
+            </div>
+
+            <div class="cf-field">
+              <label for="cf-auth-pass">Senha</label>
+              <input type="password" id="cf-auth-pass" class="cf-input-field" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" id="cf-auth-submit-btn" class="cf-btn cf-btn-primary cf-btn-block cf-sheen" style="margin-top: 0.5rem;">
+              Entrar na conta
+            </button>
+          </form>
+
+          <div style="text-align: center; margin-top: 1.5rem;">
+            <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfNavigate('landing')">
+              ← Voltar para o início
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         TELA 3: DASHBOARD (GERADOR, HISTÓRICO, MEU PLANO)
+         ====================================================================== -->
+    <section id="cf-view-dashboard" class="cf-view">
+      
+      <!-- Barra Superior de Abas Fluida -->
+      <div class="cf-dash-toolbar">
+        <div class="cf-subnav">
+          <button type="button" class="cf-subnav-btn cf-subnav-active" id="cf-subnav-generator" onclick="window.cfSwitchDashTab('generator')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>Gerar cortes</span>
+          </button>
+          <button type="button" class="cf-subnav-btn" id="cf-subnav-history" onclick="window.cfSwitchDashTab('history')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>Histórico</span>
+          </button>
+          <button type="button" class="cf-subnav-btn" id="cf-subnav-plan" onclick="window.cfSwitchDashTab('plan')">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            <span>Meu plano</span>
+          </button>
+        </div>
+
+        <div class="cf-user-status">
+          <div class="cf-user-greeting">Olá, <strong id="cf-user-display-name">Criador</strong></div>
+          <span class="cf-nav-badge" id="cf-dash-plan-badge">Plano Free</span>
+        </div>
+      </div>
+
+      <!-- ABA 1: GERADOR INTELIGENTE DE CORTES -->
+      <div id="cf-subview-generator">
+        <div class="cf-glass-card cf-generator-card">
+          <div class="cf-generator-header">
+            <h2 class="cf-generator-title">Novo processamento de vídeo</h2>
+            <p class="cf-generator-desc">Cole o link completo do vídeo do YouTube para transcrever áudio com Groq e extrair os 15 melhores trechos virais.</p>
+          </div>
+
+          <div class="cf-input-wrapper">
+            <form id="cf-generate-form" class="cf-input-container" onsubmit="event.preventDefault(); window.cfStartGeneration();">
+              <div id="cf-input-sheen" class="cf-input-sheen" aria-hidden="true"></div>
+
+              <span class="cf-input-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+              </span>
+
+              <input 
+                type="url" 
+                id="cf-url-input" 
+                class="cf-url-input" 
+                placeholder="Cole o link do YouTube (ex: https://www.youtube.com/watch?v=...)" 
+                autocomplete="off"
+                spellcheck="false"
+                required
+              />
+
+              <button type="submit" id="cf-btn-generate" class="cf-btn cf-btn-primary cf-btn-generate cf-sheen">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+                </svg>
+                <span id="cf-btn-label">Gerar cortes</span>
+              </button>
+            </form>
+
+            <div id="cf-url-error" class="cf-error-box" role="alert">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span>Por favor, insira um link válido do YouTube (youtube.com ou youtu.be).</span>
+            </div>
+          </div>
+
+          <!-- Barra de Progresso com Shimmer e Etapas -->
+          <div id="cf-processing-box" class="cf-processing-card" aria-live="polite">
+            <div class="cf-processing-top">
+              <div class="cf-thinking-pill">
+                <div class="cf-dots">
+                  <span class="cf-dot"></span>
+                  <span class="cf-dot"></span>
+                  <span class="cf-dot"></span>
+                </div>
+                <span>Pensando</span>
+              </div>
+              <div class="cf-eta-text" id="cf-eta-label">Iniciando análise do vídeo...</div>
+            </div>
+
+            <div class="cf-progress-track">
+              <div id="cf-progress-fill" class="cf-progress-fill"></div>
+            </div>
+
+            <ul class="cf-steps-list">
+              <li class="cf-step-item" id="cf-pstep-0">
+                <span class="cf-step-check">1</span>
+                <span>Baixando o vídeo...</span>
+              </li>
+              <li class="cf-step-item" id="cf-pstep-1">
+                <span class="cf-step-check">2</span>
+                <span>Transcrevendo Groq Whisper...</span>
+              </li>
+              <li class="cf-step-item" id="cf-pstep-2">
+                <span class="cf-step-check">3</span>
+                <span>IA analisando retenção...</span>
+              </li>
+              <li class="cf-step-item" id="cf-pstep-3">
+                <span class="cf-step-check">4</span>
+                <span>Cortando 15 clipes verticais...</span>
+              </li>
+              <li class="cf-step-item" id="cf-pstep-4">
+                <span class="cf-step-check">5</span>
+                <span>Pronto!</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Grade dos 15 Cortes Virais Gerados -->
+        <div id="cf-results-box" class="cf-results-section">
+          <div class="cf-results-header">
+            <div>
+              <h3 class="cf-results-title">
+                <span>15 Cortes Virais Extraídos</span>
+                <span class="cf-nav-badge">IA Score 62–98</span>
+              </h3>
+              <p style="font-size: 0.88rem; color: var(--cf-text-muted); margin-top: 4px;" id="cf-results-video-title">
+                Vídeo analisado e processado com precisão milimétrica de timestamps
+              </p>
+            </div>
+
+            <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyAllHooks()">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copiar todos os ganchos</span>
+            </button>
+          </div>
+
+          <div id="cf-cards-grid" class="cf-cards-grid">
+            <!-- 15 Cards Injetados Dinamicamente via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 2: HISTÓRICO DE VÍDEOS PROCESSADOS -->
+      <div id="cf-subview-history" style="display: none;">
+        <div class="cf-history-header">
+          <div>
+            <h3 style="font-size: 1.4rem; color: #ffffff; margin-bottom: 0.25rem;">Histórico de Processamento</h3>
+            <p style="font-size: 0.9rem; color: var(--cf-text-muted);">Vídeos já analisados e salvos na sua conta.</p>
+          </div>
+          <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfClearHistory()">
+            Limpar histórico
+          </button>
+        </div>
+
+        <div id="cf-history-list">
+          <!-- Lista de vídeos ou estado vazio -->
+        </div>
+      </div>
+
+      <!-- ABA 3: MEU PLANO & CONSUMO -->
+      <div id="cf-subview-plan" style="display: none;">
+        <div class="cf-glass-card cf-user-panel-card">
+          <div class="cf-user-panel-top">
+            <div>
+              <div class="cf-panel-title-label">Assinatura Atual</div>
+              <h2 class="cf-panel-plan-name" id="cf-my-plan-title">Plano Free</h2>
+            </div>
+            <button type="button" class="cf-btn cf-btn-primary cf-sheen" onclick="window.cfOpenUpgradeModal()">
+              Fazer Upgrade
+            </button>
+          </div>
+
+          <div class="cf-quota-row">
+            <span style="color: var(--cf-text-muted);">Consumo de vídeos neste mês</span>
+            <span id="cf-quota-text" style="font-weight: 700; color: var(--cf-accent-amber); font-variant-numeric: tabular-nums;">
+              0 / 3 vídeos usados
+            </span>
+          </div>
+
+          <div class="cf-quota-bar-track">
+            <div id="cf-quota-fill" class="cf-quota-bar-fill" style="width: 0%;"></div>
+          </div>
+
+          <p style="font-size: 0.88rem; color: var(--cf-text-muted); line-height: 1.5;">
+            No plano Free você tem direito a 3 vídeos mensais com marca d'água. Nos planos Pro (R$ 29/mês) e Turbo (R$ 59/mês), os vídeos são ilimitados e em qualidade 4K.
+          </p>
+
+          <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem;">
+            <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfResetDemoUsage()">
+              Zerar contador de cota (Modo Demonstração)
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabela Comparativa -->
+        <div class="cf-glass-card" style="padding: 2.2rem;">
+          <h3 style="font-size: 1.25rem; font-weight: 700; color: #ffffff; margin-bottom: 1rem;">
+            Comparativo de Recursos dos Planos
+          </h3>
+          <div style="overflow-x: auto;">
+            <table class="cf-compare-table">
+              <thead>
+                <tr>
+                  <th>Recurso</th>
+                  <th>Free</th>
+                  <th>Pro (R$ 29/mês)</th>
+                  <th>Turbo (R$ 59/mês)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Vídeos mensais</td>
+                  <td>3 vídeos</td>
+                  <td><strong>Ilimitado</strong></td>
+                  <td><strong>Ilimitado</strong></td>
+                </tr>
+                <tr>
+                  <td>Cortes por vídeo</td>
+                  <td>15 cortes virais</td>
+                  <td>15 cortes virais</td>
+                  <td>15 cortes virais</td>
+                </tr>
+                <tr>
+                  <td>Marca d'água</td>
+                  <td>Sim</td>
+                  <td><strong>Sem marca</strong></td>
+                  <td><strong>Sem marca</strong></td>
+                </tr>
+                <tr>
+                  <td>Resolução de saída</td>
+                  <td>1080p Full HD</td>
+                  <td><strong>4K Ultra HD</strong></td>
+                  <td><strong>4K Ultra HD</strong></td>
+                </tr>
+                <tr>
+                  <td>Legendas automáticas</td>
+                  <td>Estáticas</td>
+                  <td>Estáticas</td>
+                  <td><strong>Dinâmicas TikTok com IA</strong></td>
+                </tr>
+                <tr>
+                  <td>Acesso à API</td>
+                  <td>Não</td>
+                  <td>Não</td>
+                  <td><strong>Acesso completo</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Modal de Upgrade / Limite Excedido -->
+  <div id="cf-upgrade-modal" class="cf-modal-backdrop" role="dialog" aria-modal="true">
+    <div class="cf-glass-card cf-modal-box">
+      <div class="cf-modal-icon">
+        <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+      </div>
+
+      <h3 style="font-size: 1.45rem; font-weight: 700; color: #ffffff; margin-bottom: 0.65rem;" id="cf-modal-title">
+        Escale sua produção de cortes
+      </h3>
+
+      <p style="color: var(--cf-text-muted); font-size: 0.94rem; line-height: 1.55; margin-bottom: 1.8rem;" id="cf-modal-desc">
+        Faça upgrade para o plano <strong>Pro (R$ 29/mês)</strong> para gerar vídeos ilimitados sem marca d'água e exportar em 4K, ou assine o <strong>Turbo (R$ 59/mês)</strong> com legendas dinâmicas e API.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <button type="button" class="cf-btn cf-btn-primary cf-btn-block cf-sheen" onclick="window.cfTriggerCheckout('Pro')">
+          Assinar Plano Pro — R$ 29/mês
+        </button>
+        <button type="button" class="cf-btn cf-btn-ghost cf-btn-block" onclick="window.cfTriggerCheckout('Turbo')">
+          Assinar Plano Turbo — R$ 59/mês
+        </button>
+        <button type="button" class="cf-btn cf-btn-ghost cf-btn-block" style="border-color: transparent;" onclick="window.cfCloseUpgradeModal()">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification com Efeito Spring Bounce -->
+  <div id="cf-toast" class="cf-toast" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    <span id="cf-toast-msg">Copiado com sucesso!</span>
+  </div>
+
+  <!-- Rodapé -->
+  <footer class="cf-footer">
+    <div class="cf-container">
+      <p style="margin-bottom: 0.4rem;">
+        ClipFire © 2025 · SaaS de Cortes Virais de YouTube com Inteligência Artificial
+      </p>
+      <p style="font-size: 0.8rem; color: var(--cf-text-dim);">
+        Alimentado por Groq Whisper, Modelos de Retenção LLaMA-3 e Processamento Contínuo.
+      </p>
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       LÓGICA JAVASCRIPT EMBUTIDA (SPA SEM DEPENDÊNCIAS EXTERNAS)
+       ========================================================================== -->
+  <script>
+    (function () {
+      "use strict";
+
+      /* ========================================================================
+         ESTADO GLOBAL & LOCALSTORAGE
+         ======================================================================== */
+      const STATE = {
+        currentUser: null,
+        activeView: 'landing',
+        activeDashTab: 'generator',
+        authMode: 'login',
+        userPlan: 'Free',
+        usageCount: 0,
+        history: [],
+        currentGeneratedClips: []
+      };
+
+      // Banco de dados simulado realista de títulos virais, descrições e hashtags em pt-BR
+      const VIRAL_DATA_POOL = [
+        {
+          title: "O momento exato que o convidado percebeu o erro!",
+          desc: "Quando ele tentou desconversar mas a reação entregou tudo. Veja a expressão no segundo 18.",
+          captionWords: ["ELE", "NÃO", "ESPERAVA", "ESSA", "RESPOSTA", "AO", "VIVO!"],
+          tags: ["#shorts", "#cortesvirais", "#podcast", "#react", "#inesperado"]
+        },
+        {
+          title: "A regra de 5 segundos que destrói a procrastinação",
+          desc: "Um método neurocientífico simples que desbloqueia a ação imediata sob pressão extrema.",
+          captionWords: ["CONTE", "DE", "5", "ATÉ", "1", "E", "AJA", "AGORA!"],
+          tags: ["#foco", "#produtividade", "#habitos", "#mindset", "#sucesso"]
+        },
+        {
+          title: "O maior erro financeiro cometido por 99% dos jovens",
+          desc: "Se você faz isso todo começo de mês, está jogando dinheiro no lixo sem perceber.",
+          captionWords: ["PARE", "DE", "GASTAR", "NISSO", "ANTES", "DOS", "30!"],
+          tags: ["#financas", "#dinheiro", "#investimentos", "#alerta", "#dicas"]
+        },
+        {
+          title: "A pergunta que deixou o estúdio em silêncio absoluto",
+          desc: "Foram 8 segundos de constrangimento total antes da verdade ser dita.",
+          captionWords: ["O", "MAIOR", "SILÊNCIO", "DA", "HISTÓRIA", "DO", "PODCAST!"],
+          tags: ["#polemica", "#entrevista", "#bastidores", "#tenso", "#viralizou"]
+        },
+        {
+          title: "Como ele faturou milhões sem gastar um centavo em anúncio",
+          desc: "A estratégia obscura de distribuição orgânica que virou o jogo da noite pro dia.",
+          captionWords: ["A", "ESTRATÉGIA", "QUE", "NENHUM", "CURSO", "TE", "ENSINA!"],
+          tags: ["#negocios", "#marketingdigital", "#vendas", "#growth", "#shortsbrasil"]
+        },
+        {
+          title: "Essa lição de vida vale mais do que qualquer faculdade",
+          desc: "Em 40 segundos, um resumo certeiro sobre como blindar sua mente contra críticas.",
+          captionWords: ["QUEM", "TE", "CRITICA", "NUNCA", "CONSTRUIU", "NADA!"],
+          tags: ["#sabedoria", "#desenvolvimentopessoal", "#lideranca", "#reflexao", "#vida"]
+        },
+        {
+          title: "A técnica militar para dormir em menos de 2 minutos",
+          desc: "Usada por pilotos de caça em combate. Teste hoje mesmo antes de deitar na cama.",
+          captionWords: ["RELAXE", "A", "MANDÍBULA", "E", "DESLIGUE", "O", "CÉREBRO!"],
+          tags: ["#sono", "#saude", "#hacks", "#biohacking", "#ansiedade"]
+        },
+        {
+          title: "Por que você está sempre cansado (não é culpa do sono!)",
+          desc: "O neurocientista explica o verdadeiro ladrão de dopamina da rotina moderna.",
+          captionWords: ["SEU", "TELEFONE", "ESTÁ", "SUGANDO", "SUA", "ENERGIA!"],
+          tags: ["#neurociencia", "#cansaco", "#dopamina", "#habitos", "#bemestar"]
+        },
+        {
+          title: "Ele provou que todo mundo estava errado com um único gráfico",
+          desc: "Com números irrefutáveis na mesa, ele desmontou a teoria do oponente ao vivo.",
+          captionWords: ["CONTRA", "DADOS", "REAIS", "NÃO", "HÁ", "ARGUMENTO!"],
+          tags: ["#debate", "#fatos", "#argumento", "#inteligencia", "#tiktok"]
+        },
+        {
+          title: "O detalhe bizarro escondido bem na nossa frente",
+          desc: "Quantas vezes você olhou para isso na rotina e nunca percebeu a mensagem subliminar?",
+          captionWords: ["VOCÊ", "NUNCA", "MAIS", "VAI", "OLHAR", "IGUAL!"],
+          tags: ["#curiosidade", "#misterio", "#detalhes", "#mindblown", "#fatos"]
+        },
+        {
+          title: "O conselho de ouro antes de assinar qualquer contrato",
+          desc: "A cláusula secreta que salva qualquer empreendedor de um processo milionário.",
+          captionWords: ["NUNCA", "ASSINE", "SEM", "LER", "ESSE", "PARÁGRAFO!"],
+          tags: ["#direito", "#contrato", "#negocios", "#alerta", "#empresas"]
+        },
+        {
+          title: "A reação impagável quando a verdade veio à tona",
+          desc: "Você piscou e perdeu a cara de espanto de todo mundo na mesa. Assista até o fim!",
+          captionWords: ["A", "CARA", "DELE", "NO", "FINAL", "DIZ", "TUDO!"],
+          tags: ["#reacao", "#surpresa", "#humor", "#cortes", "#reels"]
+        },
+        {
+          title: "Como identificar uma pessoa falsa em 30 segundos",
+          desc: "Preste atenção na maneira como ela reage às suas boas notícias quando ninguém vê.",
+          captionWords: ["AMIGOS", "DE", "VERDADE", "COMEMORAM", "SUA", "VITÓRIA!"],
+          tags: ["#psicologia", "#relacionamentos", "#pessoas", "#maturidade", "#conselho"]
+        },
+        {
+          title: "A rotina matinal que multiplicou minha clareza mental",
+          desc: "Elimine a luz do celular na primeira hora e veja seu cérebro trabalhar em alta rotação.",
+          captionWords: ["A", "PRIMEIRA", "HORA", "DEFINE", "SEU", "DIA", "INTEIRO!"],
+          tags: ["#rotina", "#foco", "#disciplina", "#altaperformance", "#motivacao"]
+        },
+        {
+          title: "O que ninguém te conta sobre o topo da montanha",
+          desc: "Reflexão brutal sobre solidão, sucesso e o verdadeiro significado de legado.",
+          captionWords: ["O", "SUCESSO", "SEM", "PAZ", "É", "FRACASSO", "DISFARÇADO!"],
+          tags: ["#legado", "#sucesso", "#filosofia", "#emocionante", "#cortesvirais"]
+        }
+      ];
+
+      // Inicialização do aplicativo
+      document.addEventListener('DOMContentLoaded', () => {
+        loadLocalStorage();
+        bindInputInteractions();
+        bindScrollReveal();
+
+        // Se logado, ir para o dashboard; senão landing
+        if (STATE.currentUser) {
+          window.cfNavigate('dashboard');
+        } else {
+          window.cfNavigate('landing');
+        }
+      });
+
+      /* ========================================================================
+         PERSISTÊNCIA & STORAGE
+         ======================================================================== */
+      function loadLocalStorage() {
+        try {
+          const user = localStorage.getItem('cf_user');
+          if (user) STATE.currentUser = JSON.parse(user);
+
+          const plan = localStorage.getItem('cf_plan');
+          if (plan) STATE.userPlan = plan;
+
+          const count = localStorage.getItem('cf_usage_count');
+          if (count !== null) STATE.usageCount = parseInt(count, 10);
+
+          const hist = localStorage.getItem('cf_history');
+          if (hist) STATE.history = JSON.parse(hist);
+        } catch (e) {
+          console.warn('Erro ao carregar dados do localStorage:', e);
+        }
+        updateGlobalUI();
+      }
+
+      function saveLocalStorage() {
+        try {
+          if (STATE.currentUser) {
+            localStorage.setItem('cf_user', JSON.stringify(STATE.currentUser));
+          } else {
+            localStorage.removeItem('cf_user');
+          }
+          localStorage.setItem('cf_plan', STATE.userPlan);
+          localStorage.setItem('cf_usage_count', STATE.usageCount.toString());
+          localStorage.setItem('cf_history', JSON.stringify(STATE.history));
+        } catch (e) {
+          console.warn('Erro ao salvar no localStorage:', e);
+        }
+        updateGlobalUI();
+      }
+
+      function updateGlobalUI() {
+        const navGuest = document.getElementById('cf-nav-guest');
+        const navUser = document.getElementById('cf-nav-user');
+        const navBadge = document.getElementById('cf-nav-plan-badge');
+        const dashBadge = document.getElementById('cf-dash-plan-badge');
+        const userGreeting = document.getElementById('cf-user-display-name');
+        const myPlanTitle = document.getElementById('cf-my-plan-title');
+        const quotaText = document.getElementById('cf-quota-text');
+        const quotaFill = document.getElementById('cf-quota-fill');
+
+        if (STATE.currentUser) {
+          if (navGuest) navGuest.style.display = 'none';
+          if (navUser) navUser.style.display = 'flex';
+          if (userGreeting) userGreeting.textContent = STATE.currentUser.name || 'Criador';
+        } else {
+          if (navGuest) navGuest.style.display = 'flex';
+          if (navUser) navUser.style.display = 'none';
+        }
+
+        if (navBadge) navBadge.textContent = 'Plano ' + STATE.userPlan;
+        if (dashBadge) dashBadge.textContent = 'Plano ' + STATE.userPlan;
+        if (myPlanTitle) myPlanTitle.textContent = 'Plano ' + STATE.userPlan;
+
+        // Atualização da cota mensal
+        if (quotaText && quotaFill) {
+          if (STATE.userPlan === 'Free') {
+            quotaText.textContent = `${STATE.usageCount} / 3 vídeos usados no mês`;
+            const pct = Math.min(100, Math.round((STATE.usageCount / 3) * 100));
+            quotaFill.style.width = pct + '%';
+          } else {
+            quotaText.textContent = `${STATE.usageCount} vídeos gerados (Uso Ilimitado)`;
+            quotaFill.style.width = '100%';
+          }
+        }
+      }
+
+      /* ========================================================================
+         ROTEAMENTO & NAVEGAÇÃO SPA
+         ======================================================================== */
+      window.cfNavigate = function (viewId, subParam) {
+        STATE.activeView = viewId;
+        document.querySelectorAll('.cf-view').forEach(v => v.classList.remove('cf-view-active'));
+
+        const target = document.getElementById(`cf-view-${viewId}`);
+        if (target) {
+          target.classList.add('cf-view-active');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        if (viewId === 'auth' && subParam) {
+          window.cfSwitchAuthTab(subParam);
+        } else if (viewId === 'dashboard') {
+          window.cfSwitchDashTab(subParam || 'generator');
+        }
+
+        updateGlobalUI();
+      };
+
+      window.cfSwitchDashTab = function (tabId) {
+        STATE.activeDashTab = tabId;
+
+        const tabs = ['generator', 'history', 'plan'];
+        tabs.forEach(t => {
+          const btn = document.getElementById(`cf-subnav-${t}`);
+          const subview = document.getElementById(`cf-subview-${t}`);
+          if (btn) {
+            btn.classList.toggle('cf-subnav-active', t === tabId);
+          }
+          if (subview) {
+            subview.style.display = (t === tabId) ? 'block' : 'none';
+          }
+        });
+
+        if (tabId === 'history') {
+          renderHistoryList();
+        }
+      };
+
+      window.cfScrollTo = function (elemId) {
+        if (STATE.activeView !== 'landing') {
+          window.cfNavigate('landing');
+          setTimeout(() => {
+            const el = document.getElementById(elemId);
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+        } else {
+          const el = document.getElementById(elemId);
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }
+      };
+
+      window.cfHandleHeroCTA = function () {
+        if (STATE.currentUser) {
+          window.cfNavigate('dashboard', 'generator');
+        } else {
+          window.cfNavigate('auth', 'register');
+        }
+      };
+
+      window.cfSelectPlan = function (planName) {
+        STATE.userPlan = planName;
+        saveLocalStorage();
+        if (STATE.currentUser) {
+          window.cfNavigate('dashboard', 'plan');
+          window.cfShowToast(`Plano alterado para ${planName}!`);
+        } else {
+          window.cfNavigate('auth', 'register');
+          window.cfShowToast(`Plano ${planName} selecionado. Crie sua conta para começar!`);
+        }
+      };
+
+      /* ========================================================================
+         AUTENTICAÇÃO SIMULADA
+         ======================================================================== */
+      window.cfSwitchAuthTab = function (mode) {
+        STATE.authMode = mode;
+        const tabLogin = document.getElementById('cf-tab-login');
+        const tabReg = document.getElementById('cf-tab-register');
+        const nameGroup = document.getElementById('cf-auth-name-group');
+        const submitBtn = document.getElementById('cf-auth-submit-btn');
+
+        if (mode === 'login') {
+          tabLogin.classList.add('cf-auth-active');
+          tabReg.classList.remove('cf-auth-active');
+          nameGroup.style.display = 'none';
+          submitBtn.textContent = 'Entrar na conta';
+        } else {
+          tabReg.classList.add('cf-auth-active');
+          tabLogin.classList.remove('cf-auth-active');
+          nameGroup.style.display = 'block';
+          submitBtn.textContent = 'Criar conta grátis';
+        }
+      };
+
+      window.cfSubmitAuth = function () {
+        const email = document.getElementById('cf-auth-email').value.trim();
+        const pass = document.getElementById('cf-auth-pass').value.trim();
+        const name = document.getElementById('cf-auth-name').value.trim();
+
+        if (!email || !pass) {
+          window.cfShowToast('Preencha seu e-mail e senha.');
+          return;
+        }
+
+        const userName = (STATE.authMode === 'register' && name) ? name : email.split('@')[0];
+        STATE.currentUser = {
+          name: userName,
+          email: email
+        };
+
+        saveLocalStorage();
+        window.cfShowToast(STATE.authMode === 'register' ? 'Conta criada com sucesso!' : 'Login realizado com sucesso!');
+        window.cfNavigate('dashboard', 'generator');
+      };
+
+      window.cfLogout = function () {
+        STATE.currentUser = null;
+        saveLocalStorage();
+        window.cfShowToast('Você saiu da sua conta.');
+        window.cfNavigate('landing');
+      };
+
+      /* ========================================================================
+         INTERAÇÕES DE INPUT & GLOW PULSANTE
+         ======================================================================== */
+      function bindInputInteractions() {
+        const urlInput = document.getElementById('cf-url-input');
+        const container = document.querySelector('.cf-input-container');
+        const sheen = document.getElementById('cf-input-sheen');
+        const errorBox = document.getElementById('cf-url-error');
+
+        if (!urlInput || !container) return;
+
+        // Glow pulsante ao digitar
+        urlInput.addEventListener('input', () => {
+          if (urlInput.value.trim().length > 0) {
+            container.classList.add('cf-active-glow');
+          } else {
+            container.classList.remove('cf-active-glow');
+          }
+          if (errorBox) errorBox.classList.remove('cf-visible');
+        });
+
+        // Efeito Sheen Sweep de 0.8s ao colar link
+        urlInput.addEventListener('paste', () => {
+          container.classList.add('cf-active-glow');
+          if (sheen) {
+            sheen.classList.remove('cf-animate-sheen');
+            void sheen.offsetWidth; // reativação da animação
+            sheen.classList.add('cf-animate-sheen');
+          }
+        });
+
+        // Ripple no botão de gerar cortes
+        const submitBtn = document.getElementById('cf-btn-generate');
+        if (submitBtn) {
+          submitBtn.addEventListener('click', function (e) {
+            const ripple = document.createElement('span');
+            ripple.className = 'cf-ripple';
+            const rect = this.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height) * 1.5;
+            ripple.style.width = `${size}px`;
+            ripple.style.height = `${size}px`;
+            ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
+            ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+          });
+        }
+      }
+
+      function isValidYouTubeUrl(url) {
+        if (!url) return false;
+        try {
+          const parsed = new URL(url.trim());
+          const host = parsed.hostname.toLowerCase();
+          return host.includes('youtube.com') || host.includes('youtu.be');
+        } catch {
+          return false;
+        }
+      }
+
+      /* ========================================================================
+         GERADOR DE CORTES (ETAPAS E DADOS REALISTAS)
+         ======================================================================== */
+      window.cfStartGeneration = function () {
+        const urlInput = document.getElementById('cf-url-input');
+        const errorBox = document.getElementById('cf-url-error');
+        const url = urlInput.value.trim();
+
+        // Validação da URL do YouTube
+        if (!isValidYouTubeUrl(url)) {
+          if (errorBox) errorBox.classList.add('cf-visible');
+          urlInput.focus();
+          return;
+        }
+
+        if (errorBox) errorBox.classList.remove('cf-visible');
+
+        // Validação de limite de uso no plano Free (máximo 3 vídeos/mês)
+        if (STATE.userPlan === 'Free' && STATE.usageCount >= 3) {
+          window.cfOpenUpgradeModal(true);
+          return;
+        }
+
+        // Estado do botão: "Pensando" com onda de 3 pontos
+        const submitBtn = document.getElementById('cf-btn-generate');
+        const btnLabel = document.getElementById('cf-btn-label');
+        submitBtn.disabled = true;
+        urlInput.disabled = true;
+
+        btnLabel.innerHTML = `
+          <span class="cf-dots" aria-hidden="true" style="margin-right: 4px;">
+            <span class="cf-dot" style="background:#fff;"></span>
+            <span class="cf-dot" style="background:#fff;"></span>
+            <span class="cf-dot" style="background:#fff;"></span>
+          </span>
+          <span>Pensando</span>
+        `;
+
+        // Ocultar resultados anteriores
+        const resultsBox = document.getElementById('cf-results-box');
+        resultsBox.style.display = 'none';
+
+        // Exibir painel de processamento
+        const procBox = document.getElementById('cf-processing-box');
+        const fill = document.getElementById('cf-progress-fill');
+        const etaLabel = document.getElementById('cf-eta-label');
+        procBox.style.display = 'block';
+        procBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        // Definição das 5 etapas com marcas explícitas de backend real
+        const steps = [
+          {
+            id: 'cf-pstep-0',
+            pct: 20,
+            text: 'Etapa 1 de 5: Baixando stream do vídeo do YouTube...'
+            // [BACKEND REAL: yt-dlp / stream downloader extraindo áudio 16kHz WAV]
+          },
+          {
+            id: 'cf-pstep-1',
+            pct: 45,
+            text: 'Etapa 2 de 5: Transcrevendo áudio palavra por palavra (Groq Whisper)...'
+            // [BACKEND REAL: GROQ WHISPER-LARGE-V3 - Transcrição milimétrica palavra por palavra com timestamps]
+          },
+          {
+            id: 'cf-pstep-2',
+            pct: 70,
+            text: 'Etapa 3 de 5: IA analisando picos de retenção e ganchos virais...'
+            // [BACKEND REAL: LLM GROQ LLaMA-3.3-70B - Seleção dos 15 trechos com maior potencial, títulos e hashtags]
+          },
+          {
+            id: 'cf-pstep-3',
+            pct: 90,
+            text: 'Etapa 4 de 5: Ffmpeg cortando os 15 melhores clipes verticais...'
+            // [BACKEND REAL: FFMPEG - Split de áudio/vídeo, reenquadramento 9:16 e queima de legendas animadas]
+          },
+          {
+            id: 'cf-pstep-4',
+            pct: 100,
+            text: 'Etapa 5 de 5: Pronto! 15 cortes finalizados com sucesso.'
+          }
+        ];
+
+        // Reset da UI das etapas
+        steps.forEach(s => {
+          const el = document.getElementById(s.id);
+          if (el) el.className = 'cf-step-item';
+        });
+        fill.style.width = '0%';
+
+        const stepDelay = 1100; // Total ~5.5s
+
+        steps.forEach((st, idx) => {
+          setTimeout(() => {
+            const currentEl = document.getElementById(st.id);
+            if (currentEl) currentEl.classList.add('cf-step-active');
+            etaLabel.textContent = st.text;
+            fill.style.width = `${st.pct}%`;
+
+            if (idx > 0) {
+              const prevEl = document.getElementById(steps[idx - 1].id);
+              if (prevEl) {
+                prevEl.classList.remove('cf-step-active');
+                prevEl.classList.add('cf-step-done');
+              }
+            }
+
+            // Conclusão
+            if (idx === steps.length - 1) {
+              setTimeout(() => {
+                if (currentEl) {
+                  currentEl.classList.remove('cf-step-active');
+                  currentEl.classList.add('cf-step-done');
+                }
+
+                setTimeout(() => {
+                  procBox.style.display = 'none';
+                  submitBtn.disabled = false;
+                  urlInput.disabled = false;
+                  btnLabel.textContent = 'Gerar cortes';
+
+                  // Incrementar cota e salvar no histórico
+                  STATE.usageCount += 1;
+                  const videoTitle = 'Podcast & Masterclass: Construindo Autoridade e Audiência Digital';
+                  STATE.history.unshift({
+                    id: 'vid_' + Date.now(),
+                    url: url,
+                    title: videoTitle,
+                    date: new Date().toLocaleDateString('pt-BR', {
+                      day: '2-digit', month: 'short', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit'
+                    }),
+                    clipsCount: 15
+                  });
+                  saveLocalStorage();
+
+                  // Gerar dados dos 15 cortes virais
+                  STATE.currentGeneratedClips = generate15Clips();
+                  renderClipsGrid(STATE.currentGeneratedClips);
+
+                  resultsBox.style.display = 'block';
+                  resultsBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  window.cfShowToast('15 cortes virais gerados com sucesso!');
+                }, 600);
+              }, 900);
+            }
+          }, idx * stepDelay);
+        });
+      };
+
+      // Gerador dos 15 clipes com notas 62-98 e timestamps milimétricos
+      function generate15Clips() {
+        const scores = [98, 96, 95, 93, 91, 88, 86, 84, 82, 79, 76, 73, 70, 66, 62];
+        const totalVideoLength = 840; // 14min
+        let currentSecond = 34;
+
+        return scores.map((score, idx) => {
+          const pool = VIRAL_DATA_POOL[idx] || VIRAL_DATA_POOL[idx % VIRAL_DATA_POOL.length];
+          const duration = Math.floor(Math.random() * 20) + 32; // 32 a 52 segundos
+          const startSec = currentSecond;
+          const endSec = Math.min(startSec + duration, totalVideoLength);
+          currentSecond = (endSec + Math.floor(Math.random() * 25) + 15) % (totalVideoLength - 60);
+
+          return {
+            rank: idx + 1,
+            score: score,
+            startSec: startSec,
+            endSec: endSec,
+            duration: duration,
+            timeLabel: `${formatMinSec(startSec)} → ${formatMinSec(endSec)} · ${duration}s`,
+            title: pool.title,
+            desc: pool.desc,
+            captionWords: pool.captionWords,
+            tags: pool.tags
+          };
+        });
+      }
+
+      function formatMinSec(totalSeconds) {
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      /* ========================================================================
+         RENDERIZAÇÃO DOS 15 CARDS DE CORTE (ENTRADA EM CASCATA 70MS)
+         ======================================================================== */
+      function renderClipsGrid(clips) {
+        const grid = document.getElementById('cf-cards-grid');
+        grid.innerHTML = '';
+
+        clips.forEach((clip, index) => {
+          const card = document.createElement('article');
+          card.className = 'cf-glass-card cf-card';
+          card.id = `cf-clip-${clip.rank}`;
+
+          const rankStr = `#${String(clip.rank).padStart(2, '0')}`;
+          const gradId = `cf-svg-grad-${clip.rank}`;
+          // Perímetro do círculo: 2 * PI * 25 ≈ 157. Target offset:
+          const targetOffset = 157 - (157 * clip.score) / 100;
+
+          // Palavras da legenda estilo TikTok
+          const captionsHtml = clip.captionWords.map((w, wIdx) => {
+            const isHighlight = (wIdx === 2 || wIdx === 4);
+            return `<span class="cf-cap-word ${isHighlight ? 'cf-cap-highlight' : ''}">${w}</span>`;
+          }).join('');
+
+          // Hashtags clicáveis
+          const tagsHtml = clip.tags.map(t =>
+            `<button type="button" class="cf-tag-pill" onclick="window.cfCopyTag('${t}')">${t}</button>`
+          ).join('');
+
+          card.innerHTML = `
+            <!-- Player Vertical Simulado com Legenda Dinâmica TikTok -->
+            <div class="cf-card-player">
+              <div class="cf-player-overlay"></div>
+              <span class="cf-player-pill-dur">${clip.duration}s</span>
+              <button type="button" class="cf-play-btn" aria-label="Pré-visualizar corte" onclick="window.cfPlayPreview(${clip.rank})">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </button>
+              <div class="cf-caption-preview">
+                ${captionsHtml}
+              </div>
+            </div>
+
+            <!-- Topo do Card: Ranking + Anel de Score -->
+            <div class="cf-card-top">
+              <span class="cf-rank-badge">${rankStr} MAIOR POTENCIAL</span>
+              <div class="cf-score-wrap" title="Nota viral preditiva: ${clip.score}/100">
+                <svg class="cf-score-svg" viewBox="0 0 58 58">
+                  <defs>
+                    <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#ff9a3c"/>
+                      <stop offset="100%" stop-color="#ff5e00"/>
+                    </linearGradient>
+                  </defs>
+                  <circle class="cf-score-bg" cx="29" cy="29" r="25"></circle>
+                  <circle class="cf-score-circle" cx="29" cy="29" r="25"
+                    style="stroke: url(#${gradId}); stroke-dashoffset: 157;"
+                    data-target-offset="${targetOffset}">
+                  </circle>
+                </svg>
+                <div class="cf-score-inner">
+                  <span class="cf-score-num">0</span>
+                  <span class="cf-score-label">Score</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tempo exato min:seg -->
+            <div class="cf-time-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span>${clip.timeLabel}</span>
+            </div>
+
+            <h4 class="cf-card-title">${clip.title}</h4>
+            <p class="cf-card-desc">${clip.desc}</p>
+
+            <div class="cf-tags-row">
+              ${tagsHtml}
+            </div>
+
+            <!-- Ações do Card -->
+            <div class="cf-card-actions">
+              <button type="button" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfDownloadClip(${clip.rank})">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Baixar corte</span>
+              </button>
+
+              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyClipInfo(${clip.rank})">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copiar texto</span>
+              </button>
+            </div>
+          `;
+
+          grid.appendChild(card);
+
+          // Entrada em cascata escalonada (70ms stagger)
+          setTimeout(() => {
+            card.style.animation = 'cf-card-cascade 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards';
+
+            // Animação do anel SVG
+            const circle = card.querySelector('.cf-score-circle');
+            if (circle) {
+              const offset = circle.getAttribute('data-target-offset');
+              setTimeout(() => { circle.style.strokeDashoffset = offset; }, 100);
+            }
+
+            // Animação do contador de 0 até o valor
+            const numEl = card.querySelector('.cf-score-num');
+            if (numEl) {
+              setTimeout(() => { animateNumberCount(numEl, clip.score, 1200); }, 100);
+            }
+          }, index * 70);
+        });
+      }
+
+      function animateNumberCount(el, target, duration) {
+        const start = performance.now();
+        function tick(now) {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const easeOut = 1 - Math.pow(1 - progress, 3);
+          const val = Math.round(target * easeOut);
+          el.textContent = val;
+          if (progress < 1) {
+            requestAnimationFrame(tick);
+          } else {
+            el.textContent = target;
+          }
+        }
+        requestAnimationFrame(tick);
+      }
+
+      /* ========================================================================
+         AÇÕES NOS CORTES: DOWNLOAD, COPIAR, PREVIEW
+         ======================================================================== */
+      window.cfPlayPreview = function (rank) {
+        window.cfShowToast(`Reproduzindo prévia com legendas do Corte #${rank}...`);
+      };
+
+      window.cfDownloadClip = function (rank) {
+        // [BACKEND REAL: FFmpeg gera o MP4 recortado no formato vertical 1080x1920 com áudio normalizado]
+        window.cfShowToast(`Iniciando download em MP4 do Corte #${rank}...`);
+      };
+
+      window.cfCopyClipInfo = function (rank) {
+        const clip = STATE.currentGeneratedClips.find(c => c.rank === rank);
+        if (!clip) return;
+        const text = `${clip.title}\n\n${clip.desc}\n\n${clip.tags.join(' ')}`;
+        copyClipboard(text, `Título, descrição e hashtags do Corte #${rank} copiados!`);
+      };
+
+      window.cfCopyTag = function (tag) {
+        copyClipboard(tag, `Hashtag ${tag} copiada!`);
+      };
+
+      window.cfCopyAllHooks = function () {
+        if (!STATE.currentGeneratedClips || STATE.currentGeneratedClips.length === 0) return;
+        const text = STATE.currentGeneratedClips.map(c =>
+          `#${String(c.rank).padStart(2, '0')} [Score ${c.score}] (${c.timeLabel}): ${c.title}`
+        ).join('\n');
+        copyClipboard(text, 'Todos os 15 ganchos virais copiados!');
+      };
+
+      /* ========================================================================
+         HISTÓRICO DE VÍDEOS PROCESSADOS
+         ======================================================================== */
+      function renderHistoryList() {
+        const list = document.getElementById('cf-history-list');
+        if (!list) return;
+
+        if (!STATE.history || STATE.history.length === 0) {
+          list.innerHTML = `
+            <div class="cf-glass-card cf-empty-state">
+              <div class="cf-empty-icon">
+                <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <h4 style="font-size: 1.25rem; font-weight: 700; color: #ffffff; margin-bottom: 0.5rem;">Nenhum vídeo processado ainda</h4>
+              <p style="color: var(--cf-text-muted); font-size: 0.92rem; margin-bottom: 1.5rem; max-width: 440px; margin-left: auto; margin-right: auto;">
+                Cole a URL de qualquer vídeo do YouTube na aba "Gerar cortes" para extrair seus primeiros 15 clipes com IA.
+              </p>
+              <button type="button" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfSwitchDashTab('generator')">
+                Processar meu primeiro vídeo
+              </button>
+            </div>
+          `;
+          return;
+        }
+
+        list.innerHTML = STATE.history.map(item => `
+          <div class="cf-glass-card cf-history-item">
+            <div>
+              <div class="cf-history-title">${item.title}</div>
+              <div class="cf-history-meta">${item.url} · ${item.date}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.85rem;">
+              <span class="cf-nav-badge">${item.clipsCount} cortes virais</span>
+              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfSwitchDashTab('generator'); window.cfShowToast('Carregando cortes...');">
+                Ver cortes
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      window.cfClearHistory = function () {
+        STATE.history = [];
+        saveLocalStorage();
+        renderHistoryList();
+        window.cfShowToast('Histórico limpo com sucesso.');
+      };
+
+      /* ========================================================================
+         MODAL DE UPGRADE & CHECKOUT
+         ======================================================================== */
+      window.cfOpenUpgradeModal = function (isLimitExceeded = false) {
+        const modal = document.getElementById('cf-upgrade-modal');
+        const title = document.getElementById('cf-modal-title');
+        const desc = document.getElementById('cf-modal-desc');
+
+        if (isLimitExceeded) {
+          title.textContent = 'Limite mensal do plano Free atingido!';
+          desc.innerHTML = 'Você já utilizou os <strong>3 vídeos gratuitos</strong> do mês no plano Free. Faça upgrade para o <strong>Pro (R$ 29/mês)</strong> para continuar gerando cortes ilimitados e sem marca d\'água.';
+        } else {
+          title.textContent = 'Escale sua produção de cortes virais';
+          desc.innerHTML = 'Escolha o plano ideal para seu canal ou agência. Desbloqueie vídeos ilimitados, qualidade 4K nativa e legendas sincronizadas com IA.';
+        }
+
+        if (modal) modal.classList.add('cf-modal-open');
+      };
+
+      window.cfCloseUpgradeModal = function () {
+        const modal = document.getElementById('cf-upgrade-modal');
+        if (modal) modal.classList.remove('cf-modal-open');
+      };
+
+      window.cfTriggerCheckout = function (planName) {
+        window.cfCloseUpgradeModal();
+        // [BACKEND REAL: STRIPE / MERCADO PAGO - Sessão de checkout transparente com Webhook de confirmação]
+        STATE.userPlan = planName;
+        saveLocalStorage();
+        window.cfShowToast(`Checkout simulado: plano alterado para ${planName}!`);
+        updateGlobalUI();
+      };
+
+      window.cfResetDemoUsage = function () {
+        STATE.usageCount = 0;
+        saveLocalStorage();
+        updateGlobalUI();
+        window.cfShowToast('Contador de vídeos zerado para testes no modo demo!');
+      };
+
+      /* ========================================================================
+         NOTIFICAÇÕES TOAST & CLIPBOARD
+         ======================================================================== */
+      let toastTimer = null;
+      window.cfShowToast = function (msg) {
+        const toast = document.getElementById('cf-toast');
+        const toastMsg = document.getElementById('cf-toast-msg');
+        if (!toast || !toastMsg) return;
+
+        if (toastTimer) clearTimeout(toastTimer);
+        toastMsg.textContent = msg;
+        toast.classList.add('cf-toast-show');
+
+        toastTimer = setTimeout(() => {
+          toast.classList.remove('cf-toast-show');
+        }, 2200);
+      };
+
+      function copyClipboard(text, successMsg) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            window.cfShowToast(successMsg);
+          }).catch(() => fallbackCopy(text, successMsg));
+        } else {
+          fallbackCopy(text, successMsg);
+        }
+      }
+
+      function fallbackCopy(text, successMsg) {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        try {
+          document.execCommand('copy');
+          window.cfShowToast(successMsg);
+        } catch {
+          window.cfShowToast('Não foi possível copiar');
+        }
+        document.body.removeChild(area);
+      }
+
+      /* ========================================================================
+         INTERSECTION OBSERVER (REVEAL ON SCROLL)
+         ======================================================================== */
+      function bindScrollReveal() {
+        const observer = new IntersectionObserver((entries, obs) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('cf-revealed');
+              obs.unobserve(entry.target);
+            }
+          });
+        }, {
+          threshold: 0.12,
+          rootMargin: '0px 0px -40px 0px'
+        });
+
+        document.querySelectorAll('.cf-reveal').forEach(el => observer.observe(el));
+      }
+
+    })();
+  </script>
+</body>
+</html>

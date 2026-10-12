@@ -1,0 +1,6 @@
+{
+  "name": "ClipFire — Gerador de Cortes Virais de YouTube com IA",
+  "description": "SaaS de cortes virais de YouTube com IA. Transcrição com Groq Whisper, análise de retenção e 15 cortes virais ranqueados com títulos e hashtags.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
