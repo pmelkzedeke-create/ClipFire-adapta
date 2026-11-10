@@ -1089,7 +1089,9 @@
 
     .cf-card-player {
       position: relative;
-      height: 200px;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      min-height: 195px;
       border-radius: 20px;
       overflow: hidden;
       margin-bottom: 1.25rem;
@@ -1101,6 +1103,15 @@
       justify-content: center;
       box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
       user-select: none;
+    }
+
+    .cf-player-iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      z-index: 5;
     }
 
     .cf-player-thumb-img {
@@ -1507,6 +1518,132 @@
       height: 18px;
       color: var(--cf-accent-amber);
       flex-shrink: 0;
+    }
+
+    /* Modal Cinema Escuro para Corte Isolado */
+    .cf-cinema-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 3, 2, 0.94);
+      backdrop-filter: blur(24px);
+      z-index: 250;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      overflow-y: auto;
+    }
+
+    .cf-cinema-backdrop.cf-cinema-open {
+      display: flex;
+    }
+
+    .cf-cinema-box {
+      max-width: 1040px;
+      width: 100%;
+      background: rgba(16, 9, 6, 0.96);
+      border: 1px solid rgba(255, 170, 80, 0.35);
+      border-radius: 20px;
+      box-shadow: 0 0 50px rgba(255, 94, 0, 0.22), 0 30px 80px rgba(0, 0, 0, 0.9);
+      padding: 1.75rem;
+      animation: cf-scale-in 0.32s var(--cf-ease-apple);
+      position: relative;
+    }
+
+    .cf-cinema-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+    }
+
+    .cf-cinema-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+
+    .cf-cinema-close-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .cf-cinema-close-btn:hover {
+      background: rgba(255, 106, 0, 0.3);
+      border-color: rgba(255, 154, 60, 0.6);
+      transform: scale(1.08);
+    }
+
+    .cf-cinema-player-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000000;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 170, 80, 0.25);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cf-cinema-video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+      outline: none;
+    }
+
+    .cf-cinema-loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(12, 6, 4, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: #ffffff;
+      z-index: 10;
+      transition: opacity 0.3s ease;
+    }
+
+    .cf-cinema-actions-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+    }
+
+    .cf-cinema-info-box {
+      margin-top: 1.25rem;
+      padding: 1.25rem 1.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 170, 80, 0.15);
+      border-radius: 14px;
+    }
+
+    .cf-cinema-nav-btns {
+      display: flex;
+      gap: 0.5rem;
     }
 
     /* Modal de Checkout / Upgrade */
@@ -1941,46 +2078,99 @@
       <div id="cf-subview-generator">
         <div class="cf-glass-card cf-generator-card">
           <div class="cf-generator-header">
-            <h2 class="cf-generator-title">Processamento de vídeo com IA</h2>
-            <p class="cf-generator-desc">Cole o link completo de qualquer vídeo do YouTube. O backend extrai metadados, busca as legendas reais e a IA da Groq ranqueia os 15 melhores cortes.</p>
+            <h2 class="cf-generator-title">Processamento e Fatiamento Real com FFmpeg & IA</h2>
+            <p class="cf-generator-desc">Escolha entre colar um link do YouTube ou enviar seu próprio arquivo de vídeo local (MP4/WebM) para fatiamento direto no servidor com corte e áudio 100% reais.</p>
           </div>
 
-          <div class="cf-input-wrapper">
-            <form id="cf-generate-form" class="cf-input-container" onsubmit="event.preventDefault(); window.cfStartGeneration();">
-              <div id="cf-input-sheen" class="cf-input-sheen" aria-hidden="true"></div>
+          <!-- Abas de Seleção de Fonte -->
+          <div style="display: flex; gap: 0.65rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+            <button type="button" id="cf-tab-source-yt" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfSwitchSourceTab('youtube')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+              <span>Link do YouTube</span>
+            </button>
+            <button type="button" id="cf-tab-source-upload" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfSwitchSourceTab('upload')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <span>Upload de Vídeo Local (MP4 / WebM)</span>
+            </button>
+          </div>
 
-              <span class="cf-input-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          <!-- MODO 1: LINK DO YOUTUBE -->
+          <div id="cf-source-yt-container">
+            <div class="cf-input-wrapper">
+              <form id="cf-generate-form" class="cf-input-container" onsubmit="event.preventDefault(); window.cfStartGeneration();">
+                <div id="cf-input-sheen" class="cf-input-sheen" aria-hidden="true"></div>
+
+                <span class="cf-input-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                  </svg>
+                </span>
+
+                <input 
+                  type="url" 
+                  id="cf-url-input" 
+                  class="cf-url-input" 
+                  placeholder="Cole o link do YouTube (ex: https://www.youtube.com/watch?v=...)" 
+                  autocomplete="off"
+                  spellcheck="false"
+                  required
+                />
+
+                <button type="submit" id="cf-btn-generate" class="cf-btn cf-btn-primary cf-btn-generate cf-sheen">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+                  </svg>
+                  <span id="cf-btn-label">Gerar cortes</span>
+                </button>
+              </form>
+
+              <div id="cf-url-error" class="cf-error-box" role="alert">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
-              </span>
+                <span id="cf-url-error-text">Por favor, insira um link válido do YouTube (youtube.com ou youtu.be).</span>
+              </div>
+            </div>
+          </div>
 
+          <!-- MODO 2: UPLOAD DE VÍDEO LOCAL (MP4/WEBM/MOV) -->
+          <div id="cf-source-upload-container" style="display: none;">
+            <div id="cf-dropzone" class="cf-glass-card" style="border: 2px dashed rgba(255,170,80,0.35); padding: 2.2rem; text-align: center; border-radius: 20px; cursor: pointer; transition: all 0.25s ease;" onclick="document.getElementById('cf-video-file-input').click()">
               <input 
-                type="url" 
-                id="cf-url-input" 
-                class="cf-url-input" 
-                placeholder="Cole o link do YouTube (ex: https://www.youtube.com/watch?v=...)" 
-                autocomplete="off"
-                spellcheck="false"
-                required
+                type="file" 
+                id="cf-video-file-input" 
+                accept="video/mp4,video/webm,video/quicktime,video/x-matroska,.mp4,.webm,.mov,.mkv" 
+                style="display: none;" 
+                onchange="window.cfOnFileSelected(event)" 
               />
+              <div style="width: 52px; height: 52px; margin: 0 auto 1rem; border-radius: 16px; background: rgba(255,106,0,0.15); border: 1px solid rgba(255,154,60,0.4); display: flex; align-items: center; justify-content: center; color: var(--cf-accent-amber);">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              </div>
+              <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 0.35rem;">Clique para selecionar ou arraste o vídeo aqui</h3>
+              <p style="font-size: 0.88rem; color: var(--cf-text-muted); margin-bottom: 1.25rem;">Suporta arquivos MP4, WebM, MOV ou MKV de até 300MB</p>
 
-              <button type="submit" id="cf-btn-generate" class="cf-btn cf-btn-primary cf-btn-generate cf-sheen">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
-                </svg>
-                <span id="cf-btn-label">Gerar cortes</span>
+              <div id="cf-selected-file-pill" style="display: none; align-items: center; justify-content: center; gap: 0.6rem; padding: 0.5rem 1.2rem; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); border-radius: var(--cf-radius-pill); font-size: 0.88rem; color: #10b981; max-width: 450px; margin: 0 auto 1.25rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span id="cf-selected-file-name" style="font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">video.mp4</span>
+                <span id="cf-selected-file-size" style="font-size: 0.78rem; opacity: 0.8;">(0 MB)</span>
+              </div>
+
+              <button type="button" id="cf-btn-upload-submit" class="cf-btn cf-btn-primary cf-sheen" style="margin: 0 auto;" onclick="event.stopPropagation(); window.cfStartUploadGeneration()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v10m0 0l3-3m-3 3l-3-3"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                <span id="cf-btn-upload-label">Fatiar Vídeo com FFmpeg</span>
               </button>
-            </form>
+            </div>
 
-            <div id="cf-url-error" class="cf-error-box" role="alert">
+            <div id="cf-upload-error" class="cf-error-box" role="alert">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
               </svg>
-              <span id="cf-url-error-text">Por favor, insira um link válido do YouTube (youtube.com ou youtu.be).</span>
+              <span id="cf-upload-error-text">Selecione um arquivo de vídeo válido antes de iniciar o corte.</span>
             </div>
           </div>
 
@@ -2038,6 +2228,9 @@
               <p style="font-size: 0.88rem; color: var(--cf-text-muted); margin-top: 4px;" id="cf-results-video-title">
                 Vídeo analisado e processado com precisão milimétrica de timestamps
               </p>
+              <div id="cf-export-notice" style="display: none; margin-top: 0.6rem; padding: 0.55rem 0.85rem; border-radius: 10px; font-size: 0.82rem; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.35); color: #93c5fd;">
+                <span id="cf-export-notice-text">ℹ️ Os cortes apresentam timestamps sugeridos pela IA. Para download direto com FFmpeg, utilize arquivos de vídeo autorizados ou a aba Upload Local.</span>
+              </div>
             </div>
 
             <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyAllHooks()">
@@ -2271,6 +2464,110 @@
     </div>
   </div>
 
+  <!-- Modal Cinema Escuro (Player Isolado do Corte Bruto em MP4 via FFmpeg) -->
+  <div id="cf-cinema-modal" class="cf-cinema-backdrop" role="dialog" aria-modal="true" onclick="window.cfOnCinemaBackdropClick(event)">
+    <div class="cf-cinema-box" onclick="event.stopPropagation()">
+      <div class="cf-cinema-topbar">
+        <div class="cf-cinema-badges">
+          <span id="cf-cinema-rank-badge" class="cf-rank-badge">#01 MAIOR POTENCIAL</span>
+          <span id="cf-cinema-time-badge" class="cf-time-badge" style="margin-bottom: 0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span id="cf-cinema-time-text">00:25 → 01:10 · 45s</span>
+          </span>
+          <span class="cf-nav-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">
+            🎬 Corte Bruto 16:9 Limpo (FFmpeg)
+          </span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <button type="button" class="cf-cinema-close-btn" aria-label="Fechar Tela Cinema" onclick="window.cfCloseCinemaModal()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Seleção de Modo de Player -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; padding: 0 0.5rem;">
+        <button type="button" id="cf-tab-player-mp4" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfSwitchCinemaMode('mp4')">
+          🎬 Player MP4 Gerado
+        </button>
+        <button type="button" id="cf-tab-player-yt" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfSwitchCinemaMode('youtube')">
+          ▶ Player YouTube Oficial (Trecho Exato)
+        </button>
+      </div>
+
+      <!-- Player de Vídeo Nativo HTML5 Isolado ou YouTube Iframe -->
+      <div class="cf-cinema-player-wrapper">
+        <video id="cf-cinema-video" class="cf-cinema-video" controls autoplay playsinline loop preload="auto">
+          Seu navegador não suporta reprodução de vídeo MP4.
+        </video>
+        <div id="cf-cinema-yt-container" style="display: none; width: 100%; height: 100%; position: absolute; inset: 0; background: #000;">
+          <iframe id="cf-cinema-iframe" style="width: 100%; height: 100%; border: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+
+        <div id="cf-cinema-loading" class="cf-cinema-loading-overlay">
+          <div class="cf-dots">
+            <span class="cf-dot"></span>
+            <span class="cf-dot"></span>
+            <span class="cf-dot"></span>
+          </div>
+          <span style="font-size: 0.94rem; font-weight: 600; color: #ffcaa0;">Processando e fatiando o corte em MP4 com FFmpeg...</span>
+          <span style="font-size: 0.82rem; color: var(--cf-text-muted);">Apenas o trecho selecionado está sendo gerado em alta definição</span>
+        </div>
+      </div>
+
+      <!-- Barra de Ações -->
+      <div class="cf-cinema-actions-bar">
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <button type="button" id="cf-cinema-download-btn" class="cf-btn cf-btn-primary cf-sheen" onclick="window.cfDownloadCurrentCinemaClip()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Baixar Corte Bruto (MP4 Real)</span>
+          </button>
+
+          <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyCurrentCinemaClipInfo()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Copiar Roteiro & Hashtags</span>
+          </button>
+        </div>
+
+        <div class="cf-cinema-nav-btns">
+          <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfNavigateCinema(-1)">
+            ◀ Corte Anterior
+          </button>
+          <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfNavigateCinema(1)">
+            Próximo Corte ▶
+          </button>
+        </div>
+      </div>
+
+      <!-- Metadados e Informações do Corte -->
+      <div class="cf-cinema-info-box">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 280px;">
+            <h3 id="cf-cinema-title" style="font-size: 1.25rem; font-weight: 700; color: #ffffff; margin-bottom: 0.4rem;">Título Viral do Corte</h3>
+            <p id="cf-cinema-desc" style="font-size: 0.92rem; color: var(--cf-text-muted); line-height: 1.55;">Descrição persuasiva contextualizando o corte.</p>
+          </div>
+          <div style="text-align: right; min-width: 100px;">
+            <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--cf-text-dim); letter-spacing: 0.05em; display: block;">Retenção IA</span>
+            <span id="cf-cinema-score" style="font-size: 1.6rem; font-weight: 800; color: var(--cf-accent-amber); font-variant-numeric: tabular-nums;">98/100</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 1rem;">
+          <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--cf-text-dim); letter-spacing: 0.05em; display: block; margin-bottom: 0.4rem;">Hashtags Recomendadas (Clique para copiar)</span>
+          <div id="cf-cinema-tags-row" class="cf-tags-row" style="margin-bottom: 0;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- Toast Notification com Efeito Spring Bounce -->
   <div id="cf-toast" class="cf-toast" role="status" aria-live="polite">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -2310,7 +2607,8 @@
         currentGeneratedClips: [],
         currentVideoMeta: null,
         pendingModalPlan: 'Pro',
-        selectedPayMethod: 'pix'
+        selectedPayMethod: 'pix',
+        activeCinemaRank: null
       };
 
       document.addEventListener('DOMContentLoaded', () => {
@@ -2680,8 +2978,9 @@
         }, 900);
 
         try {
-          // Chamada real ao servidor backend Express
-          const response = await fetch('/api/process-video', {
+          const apiBase = window.VITE_API_BASE_URL || '';
+          // Chamada real ao endpoint de análise de YouTube
+          const response = await fetch(`${apiBase}/api/analyze-youtube`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url })
@@ -2736,7 +3035,20 @@
 
             const transcriptBadge = document.getElementById('cf-transcript-badge');
             if (transcriptBadge) {
-              transcriptBadge.textContent = data.provider.includes('groq') ? 'Groq LLaMA-3 Score 62–98' : 'IA Score 62–98';
+              if (data.provider && data.provider.includes('gemini')) {
+                transcriptBadge.textContent = 'Gemini 3.8 Flash Score 62–98';
+              } else if (data.provider && data.provider.includes('groq')) {
+                transcriptBadge.textContent = 'Groq LLaMA-3 Score 62–98';
+              } else {
+                transcriptBadge.textContent = 'IA Score 62–98';
+              }
+            }
+
+            const notice = document.getElementById('cf-export-notice');
+            const noticeText = document.getElementById('cf-export-notice-text');
+            if (notice && noticeText) {
+              notice.style.display = 'block';
+              noticeText.innerHTML = `ℹ️ <strong>Vídeo do YouTube Analisado:</strong> Os cortes acima foram ranqueados com timestamps exatos e podem ser assistidos imediatamente em HD na Tela Cinema. Para download direto com FFmpeg sem limitações, você também pode enviar arquivos na aba <em>Upload de Vídeo Local</em>.`;
             }
 
             renderClipsGrid(data.cuts, data.video.thumbnail);
@@ -2787,17 +3099,17 @@
           const thumbMarkup = videoThumb ? `<img src="${videoThumb}" alt="Prévia do corte" class="cf-player-thumb-img" />` : '';
 
           card.innerHTML = `
-            <div class="cf-card-player">
+            <div class="cf-card-player" id="cf-player-box-${clip.rank}" onclick="window.cfOpenCinemaModal(${clip.rank})" style="cursor: pointer;" title="Clique para abrir na Tela Cinema">
               ${thumbMarkup}
               <div class="cf-player-overlay"></div>
-              <span class="cf-player-pill-dur">${clip.duration}s</span>
-              <button type="button" class="cf-play-btn" aria-label="Pré-visualizar corte" onclick="window.cfPlayPreview(${clip.rank})">
+              <span class="cf-player-pill-dur">${clip.duration}s · 16:9</span>
+              <button type="button" class="cf-play-btn" aria-label="Abrir corte isolado em Tela Cinema" onclick="event.stopPropagation(); window.cfOpenCinemaModal(${clip.rank})">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z"/>
                 </svg>
               </button>
-              <div class="cf-caption-preview">
-                ${captionsHtml}
+              <div style="position: absolute; bottom: 12px; left: 14px; font-size: 0.72rem; color: #ffcaa0; background: rgba(0,0,0,0.76); backdrop-filter: blur(8px); padding: 3px 8px; border-radius: 6px; z-index: 2; font-weight: 600; border: 1px solid rgba(255,255,255,0.12);">
+                🎬 Corte Bruto 16:9 (Clique para Ver Isolado)
               </div>
             </div>
 
@@ -2846,15 +3158,55 @@
                   <polyline points="7 10 12 15 17 10"></polyline>
                   <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
-                <span>Baixar corte</span>
+                <span>Baixar MP4</span>
               </button>
 
-              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyClipInfo(${clip.rank})">
+              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfOpenCinemaModal(${clip.rank})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Assistir corte</span>
+              </button>
+            </div>
+
+            <div style="display: flex; gap: 6px; margin-top: 0.55rem;">
+              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" style="flex: 1; font-size: 0.76rem; padding: 0.35rem 0.5rem; justify-content: center;" onclick="window.cfToggleEditTime(${clip.rank})" title="Editar segundo de início e fim">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline; margin-right:4px;">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+                <span>Editar tempo</span>
+              </button>
+              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" style="font-size: 0.76rem; padding: 0.35rem 0.55rem; color: #f87171; border-color: rgba(248,113,113,0.3);" onclick="window.cfRemoveClip(${clip.rank})" title="Remover sugestão de corte">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div id="cf-edit-box-${clip.rank}" style="display: none; margin-top: 0.65rem; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 0.6rem 0.75rem;">
+              <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 0.76rem; color: #94a3b8; margin-bottom: 6px;">
+                <span>Início (segundos):</span>
+                <input type="number" id="cf-input-start-${clip.rank}" value="${clip.startSec}" min="0" style="width: 70px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 4px; padding: 2px 6px; text-align: center; font-size: 0.8rem;" />
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 0.76rem; color: #94a3b8; margin-bottom: 8px;">
+                <span>Fim (segundos):</span>
+                <input type="number" id="cf-input-end-${clip.rank}" value="${clip.endSec}" min="1" style="width: 70px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 4px; padding: 2px 6px; text-align: center; font-size: 0.8rem;" />
+              </div>
+              <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" style="font-size: 0.72rem; padding: 2px 8px;" onclick="window.cfToggleEditTime(${clip.rank})">Cancelar</button>
+                <button type="button" class="cf-btn cf-btn-primary cf-btn-sm" style="font-size: 0.72rem; padding: 2px 10px;" onclick="window.cfSaveEditedTime(${clip.rank})">Salvar</button>
+              </div>
+            </div>
+
+            <div style="margin-top: 0.5rem; text-align: center;">
+              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" style="width: 100%; font-size: 0.76rem; padding: 0.35rem 0.6rem;" onclick="window.cfCopyClipInfo(${clip.rank})">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline; margin-right:4px;">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                 </svg>
-                <span>Copiar texto</span>
+                <span>Copiar roteiro & hashtags</span>
               </button>
             </div>
           `;
@@ -2895,12 +3247,461 @@
         requestAnimationFrame(tick);
       }
 
-      window.cfPlayPreview = function (rank) {
-        window.cfShowToast(`Reproduzindo prévia com legendas sincronizadas do Corte #${rank}...`);
+      /* ========================================================================
+         EDIÇÃO DE TIMESTAMPS E REMOÇÃO DE CORTES
+         ======================================================================== */
+      window.cfToggleEditTime = function (rank) {
+        const box = document.getElementById(`cf-edit-box-${rank}`);
+        if (box) {
+          box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        }
+      };
+
+      window.cfSaveEditedTime = async function (rank) {
+        const clip = STATE.currentGeneratedClips.find(c => c.rank === rank);
+        if (!clip) return;
+        const startInput = document.getElementById(`cf-input-start-${rank}`);
+        const endInput = document.getElementById(`cf-input-end-${rank}`);
+        if (!startInput || !endInput) return;
+
+        const newStart = Math.max(0, parseInt(startInput.value, 10));
+        const newEnd = Math.max(newStart + 5, parseInt(endInput.value, 10));
+        const videoId = STATE.currentVideoMeta?.id || clip.videoId || 'video';
+
+        try {
+          const res = await fetch('/api/update-cut', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ videoId, rank, startSec: newStart, endSec: newEnd }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            clip.startSec = data.startSec;
+            clip.endSec = data.endSec;
+            clip.duration = data.duration;
+            clip.timeLabel = data.timeLabel;
+            clip.embedUrl = data.embedUrl;
+            clip.streamUrl = data.streamUrl;
+            clip.downloadUrl = data.downloadUrl;
+          } else {
+            clip.startSec = newStart;
+            clip.endSec = newEnd;
+            clip.duration = newEnd - newStart;
+            clip.timeLabel = `${formatTime(newStart)} → ${formatTime(newEnd)} · ${clip.duration}s`;
+            clip.embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?start=${newStart}&end=${newEnd}&autoplay=1`;
+            clip.streamUrl = `/api/stream-cut?videoId=${videoId}&start=${newStart}&end=${newEnd}&rank=${rank}`;
+            clip.downloadUrl = `/api/download-cut?videoId=${videoId}&start=${newStart}&end=${newEnd}&rank=${rank}`;
+          }
+        } catch {
+          clip.startSec = newStart;
+          clip.endSec = newEnd;
+          clip.duration = newEnd - newStart;
+          clip.timeLabel = `${formatTime(newStart)} → ${formatTime(newEnd)} · ${clip.duration}s`;
+          clip.embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?start=${newStart}&end=${newEnd}&autoplay=1`;
+          clip.streamUrl = `/api/stream-cut?videoId=${videoId}&start=${newStart}&end=${newEnd}&rank=${rank}`;
+          clip.downloadUrl = `/api/download-cut?videoId=${videoId}&start=${newStart}&end=${newEnd}&rank=${rank}`;
+        }
+
+        renderClipsGrid(STATE.currentGeneratedClips, STATE.currentVideoMeta?.thumbnail);
+        window.cfShowToast(`Corte #${rank} atualizado para ${clip.timeLabel}!`);
+      };
+
+      window.cfRemoveClip = function (rank) {
+        const idx = STATE.currentGeneratedClips.findIndex(c => c.rank === rank);
+        if (idx !== -1) {
+          STATE.currentGeneratedClips.splice(idx, 1);
+          renderClipsGrid(STATE.currentGeneratedClips, STATE.currentVideoMeta?.thumbnail);
+          window.cfShowToast(`Corte #${rank} removido das sugestões.`);
+        }
+      };
+
+      /* ========================================================================
+         SELEÇÃO DE FONTE: YOUTUBE VS UPLOAD DE VÍDEO LOCAL
+         ======================================================================== */
+      STATE.sourceTab = 'youtube';
+      STATE.selectedVideoFile = null;
+
+      window.cfSwitchSourceTab = function (source) {
+        STATE.sourceTab = source;
+        const btnYt = document.getElementById('cf-tab-source-yt');
+        const btnUpload = document.getElementById('cf-tab-source-upload');
+        const ytCont = document.getElementById('cf-source-yt-container');
+        const uploadCont = document.getElementById('cf-source-upload-container');
+
+        if (source === 'youtube') {
+          if (btnYt) btnYt.className = 'cf-btn cf-btn-primary cf-btn-sm cf-sheen';
+          if (btnUpload) btnUpload.className = 'cf-btn cf-btn-ghost cf-btn-sm';
+          if (ytCont) ytCont.style.display = 'block';
+          if (uploadCont) uploadCont.style.display = 'none';
+        } else {
+          if (btnUpload) btnUpload.className = 'cf-btn cf-btn-primary cf-btn-sm cf-sheen';
+          if (btnYt) btnYt.className = 'cf-btn cf-btn-ghost cf-btn-sm';
+          if (ytCont) ytCont.style.display = 'none';
+          if (uploadCont) uploadCont.style.display = 'block';
+        }
+      };
+
+      window.cfOnFileSelected = function (e) {
+        const file = e.target.files?.[0];
+        const errorBox = document.getElementById('cf-upload-error');
+        const pill = document.getElementById('cf-selected-file-pill');
+        const nameEl = document.getElementById('cf-selected-file-name');
+        const sizeEl = document.getElementById('cf-selected-file-size');
+
+        if (!file) return;
+
+        if (file.size > 300 * 1024 * 1024) {
+          if (errorBox) {
+            document.getElementById('cf-upload-error-text').textContent = 'O arquivo excede o limite máximo de 300MB.';
+            errorBox.classList.add('cf-visible');
+          }
+          return;
+        }
+
+        if (errorBox) errorBox.classList.remove('cf-visible');
+        STATE.selectedVideoFile = file;
+
+        if (nameEl) nameEl.textContent = file.name;
+        if (sizeEl) sizeEl.textContent = `(${(file.size / (1024 * 1024)).toFixed(1)} MB)`;
+        if (pill) pill.style.display = 'inline-flex';
+
+        window.cfShowToast(`Arquivo "${file.name}" selecionado!`);
+      };
+
+      window.cfStartUploadGeneration = async function () {
+        const errorBox = document.getElementById('cf-upload-error');
+        const errorText = document.getElementById('cf-upload-error-text');
+
+        if (!STATE.selectedVideoFile) {
+          if (errorText) errorText.textContent = 'Selecione um arquivo de vídeo (MP4/WebM) antes de fatiar.';
+          if (errorBox) errorBox.classList.add('cf-visible');
+          return;
+        }
+
+        if (errorBox) errorBox.classList.remove('cf-visible');
+
+        const submitBtn = document.getElementById('cf-btn-upload-submit');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const resultsBox = document.getElementById('cf-results-box');
+        resultsBox.style.display = 'none';
+
+        const procBox = document.getElementById('cf-processing-box');
+        const fill = document.getElementById('cf-progress-fill');
+        const etaLabel = document.getElementById('cf-eta-label');
+        procBox.style.display = 'block';
+        procBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        const steps = [
+          { id: 'cf-pstep-0', pct: 20, text: 'Etapa 1 de 5: Enviando arquivo de vídeo para o servidor...' },
+          { id: 'cf-pstep-1', pct: 45, text: 'Etapa 2 de 5: Inspecionando áudio e duração com FFprobe...' },
+          { id: 'cf-pstep-2', pct: 70, text: 'Etapa 3 de 5: Identificando ganchos e picos de engajamento...' },
+          { id: 'cf-pstep-3', pct: 90, text: 'Etapa 4 de 5: Fatiando os cortes reais em MP4 com FFmpeg...' },
+          { id: 'cf-pstep-4', pct: 100, text: 'Etapa 5 de 5: Pronto! Cortes fatiados disponíveis para streaming e download.' }
+        ];
+
+        steps.forEach(s => {
+          const el = document.getElementById(s.id);
+          if (el) el.className = 'cf-step-item';
+        });
+        fill.style.width = '0%';
+
+        let currentStep = 0;
+        const progressTimer = setInterval(() => {
+          if (currentStep < 4) {
+            const st = steps[currentStep];
+            const currentEl = document.getElementById(st.id);
+            if (currentEl) currentEl.classList.add('cf-step-active');
+            etaLabel.textContent = st.text;
+            fill.style.width = `${st.pct}%`;
+
+            if (currentStep > 0) {
+              const prevEl = document.getElementById(steps[currentStep - 1].id);
+              if (prevEl) {
+                prevEl.classList.remove('cf-step-active');
+                prevEl.classList.add('cf-step-done');
+              }
+            }
+            currentStep++;
+          }
+        }, 1200);
+
+        try {
+          const apiBase = window.VITE_API_BASE_URL || '';
+          const formData = new FormData();
+          formData.append('video', STATE.selectedVideoFile);
+
+          const response = await fetch(`${apiBase}/api/process-upload`, {
+            method: 'POST',
+            body: formData,
+          });
+
+          clearInterval(progressTimer);
+
+          if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || 'Falha ao processar o upload do vídeo.');
+          }
+
+          const data = await response.json();
+          STATE.currentVideoMeta = data.video;
+          STATE.currentGeneratedClips = data.cuts;
+
+          steps.forEach(s => {
+            const el = document.getElementById(s.id);
+            if (el) el.className = 'cf-step-item cf-step-done';
+          });
+          fill.style.width = '100%';
+          etaLabel.textContent = 'Processamento concluído com sucesso!';
+
+          setTimeout(() => {
+            procBox.style.display = 'none';
+            if (submitBtn) submitBtn.disabled = false;
+
+            STATE.usageCount += 1;
+            STATE.history.unshift({
+              id: 'vid_' + Date.now(),
+              url: 'Arquivo Local: ' + data.video.title,
+              title: data.video.title,
+              thumbnail: data.video.thumbnail,
+              author: 'Upload Local',
+              date: new Date().toLocaleDateString('pt-BR', {
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+              }),
+              clipsCount: data.cuts.length
+            });
+            saveLocalStorage();
+
+            const resTitle = document.getElementById('cf-results-video-title');
+            if (resTitle) {
+              resTitle.innerHTML = `<strong>${data.video.title}</strong> · Vídeo Local <span style="color:#10b981;">✓ Fatiado com FFmpeg Real</span>`;
+            }
+
+            const transcriptBadge = document.getElementById('cf-transcript-badge');
+            if (transcriptBadge) {
+              transcriptBadge.textContent = 'FFmpeg H.264 Ultra-Rápido';
+            }
+
+            const notice = document.getElementById('cf-export-notice');
+            const noticeText = document.getElementById('cf-export-notice-text');
+            if (notice && noticeText) {
+              notice.style.display = 'block';
+              noticeText.innerHTML = `✓ <strong>Vídeo Local Fatiado com FFmpeg:</strong> Arquivo processado diretamente no servidor. Todos os cortes MP4 estão prontos para streaming instantâneo e download direto em formato 16:9 H.264 / AAC.`;
+            }
+
+            renderClipsGrid(data.cuts, data.video.thumbnail);
+
+            resultsBox.style.display = 'block';
+            resultsBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            window.cfShowToast(`${data.cuts.length} cortes reais fatiados com FFmpeg com sucesso!`);
+          }, 600);
+
+        } catch (err) {
+          clearInterval(progressTimer);
+          procBox.style.display = 'none';
+          if (submitBtn) submitBtn.disabled = false;
+
+          if (errorText) errorText.textContent = err.message || 'Erro no processamento do vídeo.';
+          if (errorBox) errorBox.classList.add('cf-visible');
+          window.cfShowToast('Falha no upload: ' + err.message);
+        }
+      };
+
+      /* ========================================================================
+         MODAL CINEMA ESCURO (PLAYER ISOLADO 16:9 EM MP4 REAL VIA FFMPEG & YOUTUBE)
+         ======================================================================== */
+      window.cfSwitchCinemaMode = function (mode) {
+        const btnMp4 = document.getElementById('cf-tab-player-mp4');
+        const btnYt = document.getElementById('cf-tab-player-yt');
+        const video = document.getElementById('cf-cinema-video');
+        const ytContainer = document.getElementById('cf-cinema-yt-container');
+        const iframe = document.getElementById('cf-cinema-iframe');
+        const loading = document.getElementById('cf-cinema-loading');
+
+        const clip = STATE.currentGeneratedClips.find(c => c.rank === STATE.activeCinemaRank);
+        if (!clip) return;
+        const videoId = STATE.currentVideoMeta?.id || clip.videoId || 'video';
+        const isUploaded = STATE.currentVideoMeta?.isUploaded || clip.sourceType === 'upload' || String(videoId).startsWith('upload_');
+
+        const hideLoading = () => {
+          if (loading) {
+            loading.style.opacity = '0';
+            setTimeout(() => { loading.style.display = 'none'; }, 200);
+          }
+        };
+
+        if (mode === 'mp4' || isUploaded) {
+          if (btnMp4) btnMp4.className = 'cf-btn cf-btn-primary cf-btn-sm cf-sheen';
+          if (btnYt) {
+            if (isUploaded) {
+              btnYt.style.display = 'none';
+            } else {
+              btnYt.style.display = 'inline-flex';
+              btnYt.className = 'cf-btn cf-btn-ghost cf-btn-sm';
+            }
+          }
+          if (ytContainer) ytContainer.style.display = 'none';
+          if (iframe) iframe.src = '';
+          if (video) video.style.display = 'block';
+
+          if (loading) {
+            loading.style.opacity = '1';
+            loading.style.display = 'flex';
+          }
+
+          // Listeners para esconder o loading imediatamente assim que os dados estiverem disponíveis
+          video.onloadeddata = hideLoading;
+          video.oncanplay = hideLoading;
+          video.onplaying = hideLoading;
+          video.onerror = () => {
+            hideLoading();
+            console.warn('Vídeo MP4 não pôde ser reproduzido diretamente no navegador.');
+          };
+
+          // Timeout de segurança absoluto: NUNCA deixa a tela travada carregando
+          setTimeout(hideLoading, 1200);
+
+          video.src = clip.streamUrl || `/api/stream-cut?videoId=${videoId}&start=${clip.startSec}&end=${clip.endSec}&rank=${clip.rank}`;
+          video.load();
+          video.play().catch(() => {});
+        } else {
+          // Modo YouTube Oficial
+          if (btnYt) {
+            btnYt.style.display = 'inline-flex';
+            btnYt.className = 'cf-btn cf-btn-primary cf-btn-sm cf-sheen';
+          }
+          if (btnMp4) btnMp4.className = 'cf-btn cf-btn-ghost cf-btn-sm';
+          if (video) {
+            video.pause();
+            video.style.display = 'none';
+          }
+          hideLoading();
+          if (ytContainer && iframe) {
+            ytContainer.style.display = 'block';
+            iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?start=${clip.startSec}&end=${clip.endSec}&autoplay=1&rel=0&modestbranding=1`;
+          }
+        }
+      };
+
+      window.cfOpenCinemaModal = function (rank) {
+        const clip = STATE.currentGeneratedClips.find(c => c.rank === rank);
+        if (!clip) return;
+
+        STATE.activeCinemaRank = rank;
+        const modal = document.getElementById('cf-cinema-modal');
+        const rankBadge = document.getElementById('cf-cinema-rank-badge');
+        const timeText = document.getElementById('cf-cinema-time-text');
+        const titleEl = document.getElementById('cf-cinema-title');
+        const descEl = document.getElementById('cf-cinema-desc');
+        const scoreEl = document.getElementById('cf-cinema-score');
+        const tagsRow = document.getElementById('cf-cinema-tags-row');
+        const btnYt = document.getElementById('cf-tab-player-yt');
+
+        if (rankBadge) rankBadge.textContent = `#${String(clip.rank).padStart(2, '0')} MAIOR POTENCIAL VIRAL`;
+        if (timeText) timeText.textContent = `${clip.timeLabel}`;
+        if (titleEl) titleEl.textContent = clip.title;
+        if (descEl) descEl.textContent = clip.desc;
+        if (scoreEl) scoreEl.textContent = `${clip.score}/100`;
+
+        if (tagsRow) {
+          tagsRow.innerHTML = (clip.tags || ['#cortes', '#viral']).map(t =>
+            `<button type="button" class="cf-tag-pill" onclick="window.cfCopyTag('${t}')">${t}</button>`
+          ).join('');
+        }
+
+        const isUploaded = STATE.currentVideoMeta?.isUploaded || clip.sourceType === 'upload' || String(clip.videoId || '').startsWith('upload_');
+        
+        if (isUploaded) {
+          if (btnYt) btnYt.style.display = 'none';
+          window.cfSwitchCinemaMode('mp4');
+        } else {
+          if (btnYt) btnYt.style.display = 'inline-flex';
+          // Para YouTube, abrir com o player oficial do trecho exato sem tela preta ou lag
+          window.cfSwitchCinemaMode('youtube');
+        }
+
+        modal.classList.add('cf-cinema-open');
+        document.body.style.overflow = 'hidden';
+        window.cfShowToast(`Abrindo Tela Cinema para Corte #${rank} em 16:9...`);
+      };
+
+      window.cfCloseCinemaModal = function () {
+        const modal = document.getElementById('cf-cinema-modal');
+        const video = document.getElementById('cf-cinema-video');
+        const iframe = document.getElementById('cf-cinema-iframe');
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        }
+        if (iframe) {
+          iframe.src = '';
+        }
+        if (modal) modal.classList.remove('cf-cinema-open');
+        document.body.style.overflow = '';
+      };
+
+      window.cfOnCinemaBackdropClick = function (e) {
+        if (e.target && e.target.id === 'cf-cinema-modal') {
+          window.cfCloseCinemaModal();
+        }
+      };
+
+      window.cfNavigateCinema = function (direction) {
+        if (!STATE.activeCinemaRank || !STATE.currentGeneratedClips.length) return;
+        let newRank = STATE.activeCinemaRank + direction;
+        if (newRank < 1) newRank = STATE.currentGeneratedClips.length;
+        if (newRank > STATE.currentGeneratedClips.length) newRank = 1;
+        window.cfOpenCinemaModal(newRank);
+      };
+
+      window.cfDownloadCurrentCinemaClip = function () {
+        if (!STATE.activeCinemaRank) return;
+        window.cfDownloadClip(STATE.activeCinemaRank);
+      };
+
+      window.cfCopyCurrentCinemaClipInfo = function () {
+        if (!STATE.activeCinemaRank) return;
+        window.cfCopyClipInfo(STATE.activeCinemaRank);
+      };
+
+      // Atalhos de teclado para o Modal Cinema (Esc, Setas)
+      document.addEventListener('keydown', (e) => {
+        const cinemaModal = document.getElementById('cf-cinema-modal');
+        if (cinemaModal && cinemaModal.classList.contains('cf-cinema-open')) {
+          if (e.key === 'Escape') {
+            window.cfCloseCinemaModal();
+          } else if (e.key === 'ArrowLeft') {
+            window.cfNavigateCinema(-1);
+          } else if (e.key === 'ArrowRight') {
+            window.cfNavigateCinema(1);
+          }
+        }
+      });
+
+      window.cfPlayClip = function (rank) {
+        window.cfOpenCinemaModal(rank);
+      };
+
+      window.cfOpenYouTubeCut = function (rank) {
+        window.cfOpenCinemaModal(rank);
       };
 
       window.cfDownloadClip = function (rank) {
-        window.cfShowToast(`Disparando download do arquivo MP4 9:16 do Corte #${rank}...`);
+        const clip = STATE.currentGeneratedClips.find(c => c.rank === rank);
+        if (!clip) return;
+        window.cfShowToast(`Iniciando download do Corte Bruto #${rank} em MP4...`);
+
+        const videoId = STATE.currentVideoMeta?.id || 'video';
+        const downloadUrl = clip.downloadUrl || `/api/download-cut?videoId=${videoId}&start=${clip.startSec}&end=${clip.endSec}&rank=${rank}`;
+
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `clipfire_corte_${rank}_${videoId}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 1200);
       };
 
       window.cfCopyClipInfo = function (rank) {

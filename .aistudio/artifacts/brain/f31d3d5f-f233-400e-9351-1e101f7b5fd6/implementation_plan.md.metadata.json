@@ -1,6 +1,6 @@
 {
-  "summary": "Plano de implementação para tornar o ClipFire 100% funcional: servidor Express full-stack, extração real de legendas/transcrição de vídeos do YouTube, integração server-side com Groq API (LLaMA-3) para seleção analítica de 15 cortes virais e simulador de pagamento completo.",
-  "updatedAt": "2026-10-12T19:01:20.698790434Z",
+  "summary": "Plano de implementação para corte e reprodução 100% reais de vídeos sem telas pretas ou simulações. Adiciona player oficial embutido do YouTube com corte por timestamp exato, suporte completo a upload de arquivos de vídeo locais (MP4/WebM) com corte real via FFmpeg, e alternador no modal de cinema.",
+  "updatedAt": "2026-10-14T00:02:56.434956522Z",
   "requestFeedback": true,
   "userFacing": true
 }

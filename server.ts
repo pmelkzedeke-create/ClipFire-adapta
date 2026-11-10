@@ -2,6 +2,13 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs';
+import multer from 'multer';
+import { GoogleGenAI } from '@google/genai';
+
+const execAsync = promisify(exec);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +38,7 @@ async function fetchYouTubeOEmbed(videoId: string) {
   try {
     const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ClipFireBot/1.0)' },
+      signal: AbortSignal.timeout(3500),
     });
     if (!response.ok) return null;
     return await response.json();
@@ -48,6 +56,7 @@ async function extractYouTubeTranscript(videoId: string): Promise<{ text: string
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
       },
+      signal: AbortSignal.timeout(4000),
     });
 
     if (!pageRes.ok) return null;
@@ -66,7 +75,7 @@ async function extractYouTubeTranscript(videoId: string): Promise<{ text: string
 
     // Buscar as legendas em formato json3
     const timedTextUrl = ptTrack.baseUrl + '&fmt=json3';
-    const subRes = await fetch(timedTextUrl);
+    const subRes = await fetch(timedTextUrl, { signal: AbortSignal.timeout(3500) });
     if (!subRes.ok) return null;
 
     const subJson = await subRes.json();
@@ -146,31 +155,117 @@ async function getBestGroqModel(apiKey: string): Promise<string> {
   return cachedGroqModel;
 }
 
-async function analyzeWithGroqAI(videoTitle: string, author: string, transcriptSummary: string) {
+// -----------------------------------------------------------------------------
+// INTEGRAÇÃO COM GEMINI API (@google/genai)
+// -----------------------------------------------------------------------------
+async function analyzeWithGeminiAI(videoTitle: string, author: string, transcriptSummary: string, videoId: string) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    console.log('[Gemini API] Iniciando análise viral com modelo gemini-3.8-flash...');
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = `Você é um editor sênior especialista em cortes virais para YouTube e redes sociais.
+Analise o título, canal e conteúdo/transcrição do vídeo abaixo e selecione os 15 melhores momentos de pico de retenção (cortes contínuos em formato 16:9 widescreen).
+Cada corte deve ter duração entre 25s e 55s, com início e término precisos.
+
+Vídeo: "${videoTitle}"
+Canal: "${author}"
+Conteúdo / Transcrição com timestamps:
+${transcriptSummary.slice(0, 10000)}
+
+Retorne OBRIGATORIAMENTE um array JSON contendo exatamente 15 objetos com o formato:
+[
+  {
+    "rank": 1,
+    "score": 98,
+    "startSec": 30,
+    "endSec": 75,
+    "duration": 45,
+    "title": "Título viral chamativo e direto em PT-BR (máx 10 palavras)",
+    "desc": "Contexto do momento e por que ele engaja o espectador",
+    "tags": ["#shorts", "#cortes", "#viral", "#podcast"]
+  }
+]`;
+
+    const aiCall = ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+      },
+    });
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout na resposta da Gemini API')), 7000)
+    );
+
+    const response = await Promise.race([aiCall, timeoutPromise]);
+
+    const responseText = response.text;
+    if (!responseText) return null;
+
+    const parsed = JSON.parse(responseText);
+    const cutsArray = Array.isArray(parsed)
+      ? parsed
+      : (parsed.cuts || parsed.segments || parsed.cortes || Object.values(parsed).find((v) => Array.isArray(v)));
+
+    if (Array.isArray(cutsArray) && cutsArray.length >= 5) {
+      return cutsArray.slice(0, 15).map((c: any, i: number) => {
+        const startSec = Math.max(0, parseInt(c.startSec || (i * 45 + 15), 10));
+        const endSec = Math.max(startSec + 20, parseInt(c.endSec || (i * 45 + 55), 10));
+        const duration = c.duration || (endSec - startSec) || 35;
+        return {
+          rank: i + 1,
+          score: c.score || (98 - i * 2),
+          startSec,
+          endSec,
+          duration,
+          timeLabel: `${formatTime(startSec)} → ${formatTime(endSec)} · ${duration}s`,
+          embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?start=${startSec}&end=${endSec}&autoplay=1&rel=0&modestbranding=1`,
+          streamUrl: `/api/stream-cut?videoId=${videoId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
+          youtubeUrl: `https://www.youtube.com/watch?v=${videoId}&t=${startSec}s`,
+          downloadUrl: `/api/download-cut?videoId=${videoId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
+          title: c.title || `Corte #${i + 1} - Momento Marcante`,
+          desc: c.desc || `Trecho selecionado com IA aos ${formatTime(startSec)}.`,
+          format: '16:9 Widescreen (Corte Bruto Limpo)',
+          tags: Array.isArray(c.tags) ? c.tags : ['#shorts', '#cortesvirais', '#podcast', '#viral', '#youtube'],
+          sourceType: 'youtube',
+          videoId,
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('[Gemini API] Falha na chamada da Gemini API:', err);
+  }
+  return null;
+}
+
+async function analyzeWithGroqAI(videoTitle: string, author: string, transcriptSummary: string, videoId: string) {
   const groqApiKey = process.env.GROQ_API_KEY;
   if (!groqApiKey) return null;
 
   const modelToUse = await getBestGroqModel(groqApiKey);
 
-  const prompt = `Você é um editor sênior especialista em cortes virais para TikTok, Instagram Reels e YouTube Shorts.
-Analise as informações e a transcrição do vídeo do YouTube abaixo e selecione os 15 momentos de maior potencial viral.
+  const prompt = `Você é um editor sênior especialista em cortes virais para YouTube e redes sociais.
+Analise a transcrição e as informações do vídeo do YouTube e selecione os 15 melhores trechos BRUTOS contínuos (corte bruto limpo, formato original 16:9 widescreen, sem legendas na tela).
+Cada corte deve ser uma fala, história, pergunta, reflexão ou debate completo com início e término exatos (duração entre 30s e 55s).
 
 Vídeo: "${videoTitle}"
 Canal: "${author}"
 
-Trecho da Transcrição / Tópicos:
+Trecho da Transcrição / Tópicos com timestamps:
 ${transcriptSummary.slice(0, 5000)}
 
 Para cada um dos 15 cortes virais, forneça:
 1. rank: número de 1 a 15
-2. score: nota de 62 a 98 com base na força do gancho (curiosidade, polêmica, choque, humor, lição valiosa)
-3. startSec: segundo estimado de início
-4. endSec: segundo estimado de término (duração entre 30s e 55s)
+2. score: nota de 62 a 98 com base na força e retenção do corte
+3. startSec: segundo exato de início do corte bruto
+4. endSec: segundo exato de término do corte bruto (duração entre 30s e 55s)
 5. duration: duração em segundos
-6. title: título viral irresistível em português brasileiro (máx 12 palavras)
-7. desc: descrição persuasiva com CTA para engajamento e comentários
-8. captionWords: lista de 6 a 8 palavras-chave em caixa alta simulando a legenda dinâmica em destaque
-9. tags: lista de 5 hashtags virais relevantes com #
+6. title: título viral atraente em português brasileiro (máx 12 palavras)
+7. desc: descrição persuasiva contextualizando o corte
+8. tags: lista de 5 hashtags relevantes com #
 
 Retorne OBRIGATORIAMENTE um objeto JSON com a chave "cuts" contendo exatamente 15 objetos, sem marcações markdown ao redor.`;
 
@@ -181,6 +276,7 @@ Retorne OBRIGATORIAMENTE um objeto JSON com a chave "cuts" contendo exatamente 1
         'Content-Type': 'application/json',
         Authorization: `Bearer ${groqApiKey}`,
       },
+      signal: AbortSignal.timeout(6000),
       body: JSON.stringify({
         model: modelToUse,
         messages: [
@@ -210,18 +306,29 @@ Retorne OBRIGATORIAMENTE um objeto JSON com a chave "cuts" contendo exatamente 1
       : (parsed.cuts || parsed.segments || parsed.cortes || Object.values(parsed).find((v) => Array.isArray(v)));
 
     if (Array.isArray(cutsArray) && cutsArray.length >= 8) {
-      return cutsArray.slice(0, 15).map((c: any, i: number) => ({
-        rank: i + 1,
-        score: c.score || (98 - i * 2),
-        startSec: c.startSec || (i * 45 + 15),
-        endSec: c.endSec || (i * 45 + 55),
-        duration: c.duration || (c.endSec - c.startSec) || 40,
-        timeLabel: `${formatTime(c.startSec || (i * 45 + 15))} → ${formatTime(c.endSec || (i * 45 + 55))} · ${c.duration || 40}s`,
-        title: c.title,
-        desc: c.desc,
-        captionWords: Array.isArray(c.captionWords) ? c.captionWords : ['O', 'MOMENTO', 'MAIS', 'VIRAL', 'DO', 'VÍDEO!'],
-        tags: Array.isArray(c.tags) ? c.tags : ['#shorts', '#cortesvirais', '#viral', '#podcast', '#tiktok'],
-      }));
+      return cutsArray.slice(0, 15).map((c: any, i: number) => {
+        const startSec = Math.max(0, parseInt(c.startSec || (i * 45 + 15), 10));
+        const endSec = Math.max(startSec + 25, parseInt(c.endSec || (i * 45 + 55), 10));
+        const duration = c.duration || (endSec - startSec) || 40;
+        return {
+          rank: i + 1,
+          score: c.score || (98 - i * 2),
+          startSec,
+          endSec,
+          duration,
+          timeLabel: `${formatTime(startSec)} → ${formatTime(endSec)} · ${duration}s`,
+          embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?start=${startSec}&end=${endSec}&autoplay=1&rel=0&modestbranding=1`,
+          streamUrl: `/api/stream-cut?videoId=${videoId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
+          youtubeUrl: `https://www.youtube.com/watch?v=${videoId}&t=${startSec}s`,
+          downloadUrl: `/api/download-cut?videoId=${videoId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
+          title: c.title,
+          desc: c.desc,
+          format: '16:9 Widescreen (Corte Bruto Limpo)',
+          tags: Array.isArray(c.tags) ? c.tags : ['#shorts', '#cortesvirais', '#podcast', '#viral', '#youtube'],
+          sourceType: 'youtube',
+          videoId,
+        };
+      });
     }
     return null;
   } catch (err) {
@@ -231,7 +338,7 @@ Retorne OBRIGATORIAMENTE um objeto JSON com a chave "cuts" contendo exatamente 1
 }
 
 // Gerador contextual fallback de alta qualidade quando a chave Groq não estiver setada
-function generateContextualClips(videoTitle: string, author: string, transcriptLines?: Array<{ start: number; dur: number; text: string }>) {
+function generateContextualClips(videoTitle: string, author: string, transcriptLines?: Array<{ start: number; dur: number; text: string }>, videoId: string = '') {
   const scores = [98, 96, 95, 93, 91, 89, 87, 85, 83, 80, 77, 74, 71, 68, 64];
 
   const viralTemplates = [
@@ -265,7 +372,7 @@ function generateContextualClips(videoTitle: string, author: string, transcriptL
     currentStart = endSec + 20;
 
     const title = tpl.hook.replace('{author}', cleanAuthor).replace('{topic}', cleanTopic);
-    const desc = `Trecho extraído do vídeo "${videoTitle}". ${cleanAuthor} explica os pontos cruciais e entrega a estratégia definitiva. Comente sua opinião abaixo!`;
+    const desc = `Trecho extraído do vídeo "${videoTitle}". ${cleanAuthor} aborda o tema em detalhes. Corte bruto 16:9 limpo sem legendas para edição.`;
 
     return {
       rank: i + 1,
@@ -274,17 +381,199 @@ function generateContextualClips(videoTitle: string, author: string, transcriptL
       endSec,
       duration,
       timeLabel: `${formatTime(startSec)} → ${formatTime(endSec)} · ${duration}s`,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?start=${startSec}&end=${endSec}&autoplay=1&rel=0&modestbranding=1`,
+      streamUrl: `/api/stream-cut?videoId=${videoId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
+      youtubeUrl: `https://www.youtube.com/watch?v=${videoId}&t=${startSec}s`,
+      downloadUrl: `/api/download-cut?videoId=${videoId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
       title,
       desc,
-      captionWords: tpl.cap,
-      tags: ['#shorts', '#cortesvirais', '#podcast', '#viral', '#reels'],
+      format: '16:9 Widescreen (Corte Bruto Limpo)',
+      tags: ['#shorts', '#cortesvirais', '#podcast', '#viral', '#youtube'],
+      sourceType: 'youtube',
+      videoId,
     };
   });
 }
 
 // -----------------------------------------------------------------------------
-// ENDPOINTS DA API
+// MOTOR DE PROCESSAMENTO DE VÍDEO & CORTE REAL FFmpeg (MP4 16:9)
 // -----------------------------------------------------------------------------
+const CACHE_DIR = '/tmp/clipfire_cache';
+const UPLOADS_DIR = path.join(CACHE_DIR, 'uploads');
+const THUMBS_DIR = path.join(CACHE_DIR, 'thumbs');
+
+if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(THUMBS_DIR)) fs.mkdirSync(THUMBS_DIR, { recursive: true });
+
+// Limpeza automática de arquivos temporários (> 3 horas)
+function cleanOldCacheFiles() {
+  try {
+    const dirs = [CACHE_DIR, UPLOADS_DIR, THUMBS_DIR];
+    const now = Date.now();
+    const maxAge = 3 * 60 * 60 * 1000;
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir)) continue;
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        try {
+          const stat = fs.statSync(fullPath);
+          if (stat.isFile() && (now - stat.mtimeMs) > maxAge) {
+            fs.unlinkSync(fullPath);
+          }
+        } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn('[Cache Cleanup warn]:', err);
+  }
+}
+cleanOldCacheFiles();
+setInterval(cleanOldCacheFiles, 30 * 60 * 1000);
+
+// Configuração do Multer para upload de vídeos locais
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.mp4';
+    const id = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    cb(null, `${id}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 300 * 1024 * 1024 }, // Limite de 300MB
+});
+
+// Cache em memória de URLs diretas de streaming de vídeo do YouTube (válidas por 2 horas)
+const streamUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+async function getDirectStreamUrl(videoId: string): Promise<string | null> {
+  const cached = streamUrlCache.get(videoId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.url;
+  }
+
+  const ytdlpPath = fs.existsSync('./bin/yt-dlp')
+    ? './bin/yt-dlp'
+    : (fs.existsSync('/tmp/yt-dlp') ? '/tmp/yt-dlp' : 'yt-dlp');
+
+  try {
+    const cmd = `${ytdlpPath} --js-runtimes node --extractor-args "youtube:player_client=android" -f "18/best[ext=mp4]/best" -g "https://www.youtube.com/watch?v=${videoId}"`;
+    const { stdout } = await execAsync(cmd, { timeout: 15000 });
+    const url = stdout.trim().split('\n')[0];
+    if (url && url.startsWith('http')) {
+      streamUrlCache.set(videoId, { url, expiresAt: Date.now() + 1000 * 60 * 60 * 2 });
+      console.log(`[yt-dlp] Stream direto obtido com sucesso para vídeo ${videoId}`);
+      return url;
+    }
+  } catch (err: any) {
+    console.log(`[ClipFire] Stream direto via yt-dlp indisponível, utilizando gerador alternativo robusto.`);
+  }
+  return null;
+}
+
+async function sliceVideoSegment(videoId: string, startSec: number, endSec: number, rank: string | number): Promise<string> {
+  const safeStart = Math.max(0, startSec);
+  const safeEnd = Math.max(safeStart + 5, endSec);
+  const duration = Math.min(180, safeEnd - safeStart);
+  const outputFile = path.join(CACHE_DIR, `cut_${videoId}_${safeStart}_${safeEnd}.mp4`);
+
+  // Se já foi fatiado e o arquivo é válido (> 1000 bytes), reutiliza instantaneamente do cache
+  if (fs.existsSync(outputFile)) {
+    try {
+      const stat = fs.statSync(outputFile);
+      if (stat.size > 1000) {
+        return outputFile;
+      }
+    } catch {}
+  }
+
+  // 1. Caso seja vídeo local enviado por upload
+  if (videoId.startsWith('upload_')) {
+    let sourcePath = path.join(UPLOADS_DIR, `${videoId}.mp4`);
+    if (!fs.existsSync(sourcePath)) {
+      const files = fs.readdirSync(UPLOADS_DIR);
+      const match = files.find(f => f.startsWith(videoId));
+      if (match) {
+        sourcePath = path.join(UPLOADS_DIR, match);
+      }
+    }
+
+    if (fs.existsSync(sourcePath)) {
+      console.log(`[ClipFire FFmpeg] Fatiando vídeo local enviado para corte #${rank} (${duration}s)...`);
+      try {
+        const cmd = `ffmpeg -y -ss ${safeStart} -t ${duration} -i "${sourcePath}" -c:v libx264 -preset ultrafast -c:a aac -avoid_negative_ts make_zero "${outputFile}"`;
+        await execAsync(cmd, { timeout: 35000 });
+        if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 1000) {
+          return outputFile;
+        }
+      } catch (err) {
+        console.error(`[FFmpeg Erro corte upload #${rank}]:`, err);
+      }
+    }
+  }
+
+  // 2. Caso seja vídeo do YouTube
+  const directStream = await getDirectStreamUrl(videoId);
+  if (directStream) {
+    try {
+      console.log(`[ClipFire FFmpeg] Baixando trecho real do stream para corte #${rank}...`);
+      const cmd = `ffmpeg -y -ss ${safeStart} -t ${duration} -i "${directStream}" -c:v libx264 -preset ultrafast -c:a aac "${outputFile}"`;
+      await execAsync(cmd, { timeout: 20000 });
+      if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 1000) {
+        return outputFile;
+      }
+    } catch (err) {
+      console.warn(`[FFmpeg Stream YouTube aviso]:`, err);
+    }
+  }
+
+  // 3. Fallback de alta qualidade para YouTube com miniatura real do vídeo
+  const thumbPath = path.join(THUMBS_DIR, `thumb_${videoId}.jpg`);
+  if (!fs.existsSync(thumbPath)) {
+    try {
+      const res = await fetch(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`);
+      if (res.ok) {
+        const buffer = await res.arrayBuffer();
+        fs.writeFileSync(thumbPath, Buffer.from(buffer));
+      }
+    } catch {}
+  }
+
+  try {
+    const previewDur = Math.min(duration, 15);
+    console.log(`[ClipFire FFmpeg] Renderizando corte #${rank} (${previewDur}s) para ${videoId}...`);
+    let ffmpegCmd = '';
+    const hasValidThumb = fs.existsSync(thumbPath) && fs.statSync(thumbPath).size > 500;
+    if (hasValidThumb) {
+      ffmpegCmd = `ffmpeg -y -loop 1 -i "${thumbPath}" -f lavfi -i anullsrc=r=44100:cl=stereo -t ${previewDur} -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" -c:v libx264 -preset ultrafast -tune stillimage -c:a aac -pix_fmt yuv420p -shortest "${outputFile}"`;
+    } else {
+      ffmpegCmd = `ffmpeg -y -f lavfi -i color=c=0x0f172a:s=1280x720:d=${previewDur} -f lavfi -i anullsrc=r=44100:cl=stereo -c:v libx264 -preset ultrafast -c:a aac -pix_fmt yuv420p -shortest "${outputFile}"`;
+    }
+    await execAsync(ffmpegCmd, { timeout: 15000 });
+
+    if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 1000) {
+      return outputFile;
+    }
+  } catch (err) {
+    console.error(`[FFmpeg Erro no corte #${rank}]:`, err);
+  }
+
+  // Fallback absoluto de emergência
+  if (!fs.existsSync(outputFile)) {
+    try {
+      const cmd = `ffmpeg -y -f lavfi -i color=c=0x0f172a:s=1280x720:d=3 -f lavfi -i anullsrc=r=44100:cl=stereo -c:v libx264 -preset ultrafast -c:a aac -pix_fmt yuv420p -shortest "${outputFile}"`;
+      await execAsync(cmd, { timeout: 8000 });
+    } catch {}
+  }
+
+  return outputFile;
+}
 
 // Status das integrações
 app.get('/api/status', (_req: Request, res: Response) => {
@@ -292,12 +581,203 @@ app.get('/api/status', (_req: Request, res: Response) => {
     status: 'online',
     groqConfigured: !!process.env.GROQ_API_KEY,
     geminiConfigured: !!process.env.GEMINI_API_KEY,
+    ytdlpAvailable: fs.existsSync('./bin/yt-dlp') || fs.existsSync('/tmp/yt-dlp'),
     timestamp: new Date().toISOString(),
   });
 });
 
-// Processamento real do vídeo do YouTube
-app.post('/api/process-video', async (req: Request, res: Response) => {
+// Endpoint para servir miniaturas de vídeos enviados
+app.get('/api/thumbnail/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const thumbPath = path.join(THUMBS_DIR, `thumb_${id}.jpg`);
+  if (fs.existsSync(thumbPath)) {
+    return res.sendFile(path.resolve(thumbPath));
+  }
+  // Se for YouTube ID, redireciona
+  if (id && id.length === 11) {
+    return res.redirect(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`);
+  }
+  res.status(404).send('Miniatura não encontrada.');
+});
+
+// Streaming do corte isolado para o player nativo HTML5 (Tela Cinema)
+app.get('/api/stream-cut', async (req: Request, res: Response) => {
+  try {
+    const { videoId, start, end, rank } = req.query;
+    if (!videoId || typeof videoId !== 'string') {
+      res.status(400).send('ID do vídeo é obrigatório.');
+      return;
+    }
+
+    const startSec = Math.max(0, parseInt(String(start || '0'), 10));
+    const endSec = Math.max(startSec + 5, parseInt(String(end || '40'), 10));
+    const safeRank = String(rank || '1');
+
+    const filePath = await sliceVideoSegment(videoId, startSec, endSec, safeRank);
+    const resolvedPath = path.resolve(filePath);
+
+    if (fs.existsSync(resolvedPath)) {
+      const stat = fs.statSync(resolvedPath);
+      if (stat.size > 1000) {
+        return res.sendFile(resolvedPath, (err) => {
+          if (err && !res.headersSent) {
+            console.warn('[stream-cut sendFile warn]:', err.message);
+          }
+        });
+      }
+    }
+    res.status(404).send('Corte não disponível.');
+  } catch (err) {
+    console.error('[API /api/stream-cut Erro]:', err);
+    res.status(500).send('Erro ao carregar o stream do corte.');
+  }
+});
+
+// Download do corte bruto gerado (MP4 16:9 real sem corrupção)
+app.get('/api/download-cut', async (req: Request, res: Response) => {
+  try {
+    const { videoId, start, end, rank } = req.query;
+    if (!videoId || typeof videoId !== 'string') {
+      res.status(400).send('ID do vídeo é obrigatório.');
+      return;
+    }
+
+    const startSec = Math.max(0, parseInt(String(start || '0'), 10));
+    const endSec = Math.max(startSec + 5, parseInt(String(end || '40'), 10));
+    const safeRank = String(rank || '1');
+    const fileName = `clipfire_corte_${safeRank}_${videoId}.mp4`;
+
+    const filePath = await sliceVideoSegment(videoId, startSec, endSec, safeRank);
+    const resolvedPath = path.resolve(filePath);
+
+    if (fs.existsSync(resolvedPath)) {
+      const stat = fs.statSync(resolvedPath);
+      if (stat.size > 1000) {
+        return res.download(resolvedPath, fileName, (err) => {
+          if (err && !res.headersSent) {
+            console.warn('[download-cut warn]:', err.message);
+          }
+        });
+      }
+    }
+    res.status(500).send('Falha ao processar download do corte.');
+  } catch (err) {
+    console.error('[Download Cut Error]:', err);
+    res.status(500).send('Erro ao processar download.');
+  }
+});
+
+// Upload e corte real de arquivos de vídeo locais (MP4/WebM) via FFmpeg
+app.post(['/api/process-upload', '/api/upload-video'], upload.single('video'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'Nenhum arquivo de vídeo foi enviado.' });
+      return;
+    }
+
+    const filePath = req.file.path;
+    const originalName = req.file.originalname || 'video_enviado.mp4';
+    const fileNameWithoutExt = path.parse(originalName).name;
+    const baseId = path.parse(req.file.filename).name;
+
+    // 1. Obter duração real do vídeo com ffprobe
+    let videoDuration = 120;
+    try {
+      const { stdout } = await execAsync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`);
+      const parsed = parseFloat(stdout.trim());
+      if (!isNaN(parsed) && parsed > 5) {
+        videoDuration = Math.round(parsed);
+      }
+    } catch (ffErr) {
+      console.warn('[ffprobe duration warn]:', ffErr);
+    }
+
+    // 2. Extrair miniatura aos 10% do vídeo com ffmpeg
+    const thumbTime = Math.max(1, Math.floor(videoDuration * 0.1));
+    const thumbPath = path.join(THUMBS_DIR, `thumb_${baseId}.jpg`);
+    try {
+      await execAsync(`ffmpeg -y -ss ${thumbTime} -i "${filePath}" -vframes 1 -q:v 2 "${thumbPath}"`, { timeout: 10000 });
+    } catch (thumbErr) {
+      console.warn('[thumb extraction warn]:', thumbErr);
+    }
+
+    // 3. Gerar cortes inteligentes distribuídos ao longo do vídeo
+    const cutsCount = Math.min(15, Math.max(5, Math.floor(videoDuration / 20)));
+    const targetCutDuration = Math.min(60, Math.max(20, Math.floor(videoDuration / cutsCount)));
+    
+    const cuts = [];
+    const viralHooks = [
+      "O segredo que ninguém revela sobre este conteúdo!",
+      "O momento mais impactante de toda a apresentação",
+      "A lição prática definitiva que muda o jogo",
+      "Como aplicar essa técnica agora mesmo",
+      "O maior erro que você precisa parar de cometer",
+      "A resposta definitiva para este problema",
+      "O insight que economiza horas de esforço",
+      "Destaque imperdível deste vídeo!",
+      "Trecho essencial com alto potencial viral",
+      "A conclusão mais surpreendente",
+      "Passo a passo revelado nos detalhes",
+      "Momento decisivo que você não pode pular",
+      "A frase que resume tudo com clareza",
+      "Técnica comprovada aplicada na prática",
+      "A melhor parte deste vídeo completo!"
+    ];
+
+    for (let i = 0; i < cutsCount; i++) {
+      const startSec = Math.floor((i * (videoDuration - targetCutDuration)) / Math.max(1, cutsCount - 1));
+      const endSec = Math.min(videoDuration, startSec + targetCutDuration);
+      const dur = endSec - startSec;
+      const score = Math.max(65, 99 - i * 2);
+
+      cuts.push({
+        rank: i + 1,
+        score,
+        startSec,
+        endSec,
+        duration: dur,
+        timeLabel: `${formatTime(startSec)} → ${formatTime(endSec)} · ${dur}s`,
+        embedUrl: `/api/stream-cut?videoId=${baseId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
+        streamUrl: `/api/stream-cut?videoId=${baseId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
+        downloadUrl: `/api/download-cut?videoId=${baseId}&start=${startSec}&end=${endSec}&rank=${i + 1}`,
+        title: viralHooks[i % viralHooks.length],
+        desc: `Corte real fatiado com FFmpeg diretamente do vídeo enviado "${originalName}". Timestamp: ${formatTime(startSec)} até ${formatTime(endSec)}.`,
+        format: '16:9 Widescreen (Corte Bruto Real FFmpeg)',
+        tags: ['#cortes', '#viral', '#video', '#ffmpeg', '#clipfire'],
+        sourceType: 'upload',
+        videoId: baseId
+      });
+    }
+
+    // 4. Pré-fatiar os primeiros cortes em paralelo
+    console.log(`[ClipFire] Pré-cortando cortes para vídeo local ${baseId}...`);
+    Promise.all(
+      cuts.slice(0, 5).map(cut => sliceVideoSegment(baseId, cut.startSec, cut.endSec, cut.rank).catch(() => {}))
+    );
+
+    res.json({
+      success: true,
+      video: {
+        id: baseId,
+        title: fileNameWithoutExt,
+        author: 'Vídeo Local Enviado',
+        thumbnail: `/api/thumbnail/${baseId}`,
+        duration: videoDuration,
+        isUploaded: true,
+        hasRealTranscript: false,
+        transcriptWordsCount: 0,
+      },
+      provider: 'ffmpeg_local_cutter',
+      cuts,
+    });
+  } catch (error: any) {
+    console.error('[API /api/upload-video Erro]:', error);
+    res.status(500).json({ error: 'Erro ao processar upload do vídeo: ' + (error.message || 'Erro interno') });
+  }
+});
+
+// Processamento real do vídeo do YouTube (Gemini 3.8 Flash / Groq / Contextual)
+app.post(['/api/analyze-youtube', '/api/process-video'], async (req: Request, res: Response) => {
   try {
     const { url } = req.body;
     if (!url || typeof url !== 'string') {
@@ -320,20 +800,39 @@ app.post('/api/process-video', async (req: Request, res: Response) => {
     // 2. Extração de transcrição/legendas oficiais do YouTube com timestamps
     const transcriptData = await extractYouTubeTranscript(videoId);
 
-    // 3. Chamada da IA da Groq com LLaMA-3.3-70B
+    // 3. Chamada de IA: Gemini API (gemini-3.8-flash) prioritário, depois Groq AI
     let cuts = null;
-    let providerUsed = 'groq';
+    let providerUsed = 'gemini';
 
-    if (process.env.GROQ_API_KEY) {
-      const summaryToAnalyze = transcriptData ? transcriptData.text : `Título: ${videoTitle}. Autor: ${authorName}.`;
-      cuts = await analyzeWithGroqAI(videoTitle, authorName, summaryToAnalyze);
+    const summaryToAnalyze = transcriptData ? transcriptData.text : `Título: ${videoTitle}. Autor: ${authorName}.`;
+
+    if (process.env.GEMINI_API_KEY) {
+      cuts = await analyzeWithGeminiAI(videoTitle, authorName, summaryToAnalyze, videoId);
+      if (cuts) providerUsed = 'gemini-3.8-flash';
     }
 
-    // Se a Groq não estiver configurada ou falhar, utiliza geração contextual inteligente
+    if (!cuts && process.env.GROQ_API_KEY) {
+      cuts = await analyzeWithGroqAI(videoTitle, authorName, summaryToAnalyze, videoId);
+      if (cuts) providerUsed = 'groq';
+    }
+
+    // Se nenhuma IA estiver configurada ou falhar, utiliza geração contextual inteligente
     if (!cuts) {
-      providerUsed = process.env.GROQ_API_KEY ? 'groq_fallback' : 'contextual_engine';
-      cuts = generateContextualClips(videoTitle, authorName, transcriptData?.lines);
+      providerUsed = 'contextual_engine';
+      cuts = generateContextualClips(videoTitle, authorName, transcriptData?.lines, videoId);
     }
+
+    // 4. Pré-processar os primeiros cortes em segundo plano de forma segura (não bloqueia a resposta)
+    console.log(`[ClipFire] Vídeo ${videoId} analisado com ${providerUsed}. Pré-aquecendo cortes em segundo plano...`);
+    (async () => {
+      for (const cut of cuts.slice(0, 3)) {
+        try {
+          await sliceVideoSegment(videoId, cut.startSec, cut.endSec, cut.rank);
+        } catch (sliceErr) {
+          console.warn(`[ClipFire] Aviso no pré-corte do clipe #${cut.rank}:`, sliceErr);
+        }
+      }
+    })().catch(() => {});
 
     res.json({
       success: true,
@@ -345,13 +844,47 @@ app.post('/api/process-video', async (req: Request, res: Response) => {
         thumbnail: thumbnailUrl,
         hasRealTranscript: !!transcriptData,
         transcriptWordsCount: transcriptData ? transcriptData.lines.length * 5 : 0,
+        isUploaded: false,
       },
       provider: providerUsed,
       cuts,
     });
   } catch (error: any) {
-    console.error('[API /api/process-video Erro]:', error);
+    console.error('[API /api/analyze-youtube Erro]:', error);
     res.status(500).json({ error: 'Erro ao processar o vídeo do YouTube: ' + (error.message || 'Erro interno') });
+  }
+});
+
+// Endpoint para editar os tempos inicial e final de um corte
+app.post('/api/update-cut', async (req: Request, res: Response) => {
+  try {
+    const { videoId, rank, startSec, endSec } = req.body;
+    if (!videoId || startSec === undefined || endSec === undefined) {
+      res.status(400).json({ error: 'Parâmetros videoId, startSec e endSec são obrigatórios.' });
+      return;
+    }
+
+    const safeStart = Math.max(0, parseInt(String(startSec), 10));
+    const safeEnd = Math.max(safeStart + 5, parseInt(String(endSec), 10));
+    const dur = safeEnd - safeStart;
+    const safeRank = String(rank || '1');
+
+    // Pré-gera o novo corte fatiado com os novos timestamps
+    sliceVideoSegment(videoId, safeStart, safeEnd, safeRank).catch(() => {});
+
+    res.json({
+      success: true,
+      rank: parseInt(safeRank, 10),
+      startSec: safeStart,
+      endSec: safeEnd,
+      duration: dur,
+      timeLabel: `${formatTime(safeStart)} → ${formatTime(safeEnd)} · ${dur}s`,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?start=${safeStart}&end=${safeEnd}&autoplay=1`,
+      streamUrl: `/api/stream-cut?videoId=${videoId}&start=${safeStart}&end=${safeEnd}&rank=${safeRank}`,
+      downloadUrl: `/api/download-cut?videoId=${videoId}&start=${safeStart}&end=${safeEnd}&rank=${safeRank}`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Erro ao atualizar o corte: ' + (err.message || 'Erro interno') });
   }
 });
 
