@@ -19,9 +19,13 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "expo-glass-effect": [
+        "./src/glass/expoGlassEffectWeb.tsx"
       ]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": ["dist", "node_modules"]
 }

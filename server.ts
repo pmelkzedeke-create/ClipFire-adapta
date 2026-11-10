@@ -1,363 +1,679 @@
 import 'dotenv/config';
-import express, { Request, Response } from 'express';
+import type * as ArchiverTypes from 'archiver';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const archiverPkg: any = require('archiver');
+function createZipArchive(options?: ArchiverTypes.ArchiverOptions): ArchiverTypes.Archiver {
+  if (typeof archiverPkg === 'function') {
+    return archiverPkg('zip', options);
+  }
+  if (typeof archiverPkg?.default === 'function') {
+    return archiverPkg.default('zip', options);
+  }
+  if (typeof archiverPkg?.ZipArchive === 'function') {
+    return new archiverPkg.ZipArchive(options);
+  }
+  throw new Error('Pacote archiver incompatível para geração de ZIP.');
+}
+import express, { NextFunction, Request, Response } from 'express';
+import fs from 'fs';
+import http from 'http';
+import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+import zlib from 'zlib';
+import { CONFIG, ensureRuntimeDirectories, sanitizeExportSettings } from './server/config.js';
+import { verifyMediaBinaries } from './server/ffmpeg.js';
+import {
+  cancelProcessingJob,
+  createAndStartProcessingJob,
+  deleteJobById,
+  getJobById,
+  initJobManager,
+  isJobActiveStatus,
+  jobEvents,
+  listRecentJobs,
+  purgeAllInactiveJobs,
+} from './server/jobManager.js';
+import {
+  getAuthenticatedAdminSession,
+  getPublicSiteConfig,
+  registerAdminRoutes,
+} from './server/adminVault.js';
+import {
+  assertSafeStorageSegment,
+  getStorageProvider,
+  verifySignedToken,
+} from './server/storage.js';
+import {
+  assertSafeExternalUrl,
+  isYouTubeWatchOrShareUrl,
+  validateUploadedFileExtensionAndMime,
+  VideoSourceError,
+} from './server/videoSource.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+ensureRuntimeDirectories();
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.disable('x-powered-by');
+const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
-// Helper para extrair o ID do vídeo do YouTube
-function extractYouTubeId(url: string): string | null {
-  if (!url) return null;
-  const regExp = /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-  const match = url.trim().match(regExp);
-  return match ? match[1] : null;
-}
-
-// Formatar segundos em mm:ss
-function formatTime(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
-  const s = Math.floor(totalSeconds % 60);
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-// Obter metadados reais do YouTube via oEmbed oficial
-async function fetchYouTubeOEmbed(videoId: string) {
-  try {
-    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ClipFireBot/1.0)' },
-    });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (err) {
-    console.warn('[YouTube oEmbed] Falha ao consultar metadados:', err);
-    return null;
+// Fast gzip compression for JSON payloads >1KB (never touches SSE or MP4/ZIP streams)
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const acceptEncoding = req.headers['accept-encoding'] || '';
+  if (!acceptEncoding.includes('gzip')) {
+    next();
+    return;
   }
-}
+  const origJson = res.json.bind(res);
+  res.json = ((body: unknown) => {
+    const payload = JSON.stringify(body);
+    if (!payload || payload.length < 1024 || res.headersSent) {
+      return origJson(body);
+    }
+    const compressed = zlib.gzipSync(Buffer.from(payload, 'utf8'), { level: 4 });
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Encoding', 'gzip');
+    res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('Content-Length', String(compressed.length));
+    return res.send(compressed);
+  }) as typeof res.json;
+  next();
+});
 
-// Tentar extrair transcrição/legendas automáticas reais do YouTube
-async function extractYouTubeTranscript(videoId: string): Promise<{ text: string; lines: Array<{ start: number; dur: number; text: string }> } | null> {
-  try {
-    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-      },
-    });
+// Disk-streamed multipart upload (never buffers large videos in memory)
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    fs.mkdirSync(CONFIG.uploadsDir, { recursive: true });
+    cb(null, CONFIG.uploadsDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 8) || '.mp4';
+    cb(null, `upload_${Date.now()}_${crypto.randomUUID()}${ext}`);
+  },
+});
 
-    if (!pageRes.ok) return null;
-    const html = await pageRes.text();
+const uploadMiddleware = multer({
+  storage: uploadStorage,
+  limits: {
+    fileSize: CONFIG.maxUploadBytes,
+    files: 1,
+  },
+});
 
-    // Localizar captionTracks no HTML do YouTube
-    const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
-    if (!captionMatch) return null;
-
-    const tracks = JSON.parse(captionMatch[1]);
-    if (!tracks || tracks.length === 0) return null;
-
-    // Preferir legendas em português ou inglês
-    const ptTrack = tracks.find((t: any) => t.languageCode?.startsWith('pt')) || tracks[0];
-    if (!ptTrack || !ptTrack.baseUrl) return null;
-
-    // Buscar as legendas em formato json3
-    const timedTextUrl = ptTrack.baseUrl + '&fmt=json3';
-    const subRes = await fetch(timedTextUrl);
-    if (!subRes.ok) return null;
-
-    const subJson = await subRes.json();
-    if (!subJson.events) return null;
-
-    const lines: Array<{ start: number; dur: number; text: string }> = [];
-    let fullText = '';
-
-    for (const evt of subJson.events) {
-      if (evt.segs && evt.tStartMs !== undefined) {
-        const segText = evt.segs.map((s: any) => s.utf8 || '').join('').trim();
-        if (segText && segText !== '\n') {
-          const startSec = Math.round(evt.tStartMs / 1000);
-          const durSec = Math.round((evt.dDurationMs || 3000) / 1000);
-          lines.push({ start: startSec, dur: durSec, text: segText });
-          fullText += `[${formatTime(startSec)}] ${segText}\n`;
+function runSingleVideoUpload(req: Request, res: Response): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const handler = uploadMiddleware.single('videoFile');
+    handler(req, res, (err: any) => {
+      if (!err) {
+        resolve();
+        return;
+      }
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          reject(
+            new VideoSourceError(
+              `O arquivo de vídeo excede o limite máximo permitido de ${CONFIG.maxUploadSizeMb} MB.`,
+              'FILE_TOO_LARGE',
+              413
+            )
+          );
+          return;
         }
+        reject(new VideoSourceError(`Erro no upload do arquivo: ${err.message}`, 'UPLOAD_ERROR', 400));
+        return;
       }
-    }
-
-    return lines.length > 0 ? { text: fullText, lines } : null;
-  } catch (err) {
-    console.warn('[YouTube Transcript] Não foi possível extrair legendas do vídeo:', err);
-    return null;
-  }
-}
-
-// [BACKEND REAL: GROQ API - Seleção dinâmica de modelo compatível e análise viral]
-let cachedGroqModel: string | null = null;
-
-async function getBestGroqModel(apiKey: string): Promise<string> {
-  if (cachedGroqModel) return cachedGroqModel;
-
-  try {
-    const res = await fetch('https://api.groq.com/openai/v1/models', {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      reject(err);
     });
-    if (res.ok) {
-      const data = await res.json();
-      const availableIds: string[] = (data.data || []).map((m: any) => m.id);
-
-      // Ordem de preferência de modelos Groq suportados
-      const candidates = [
-        'openai/gpt-oss-120b',
-        'llama-3.3-70b-versatile',
-        'llama-3.1-8b-instant',
-        'qwen/qwen3.8-27b',
-        'openai/gpt-oss-20b',
-        'llama3-70b-8192',
-        'llama3-8b-8192',
-      ];
-
-      for (const candidate of candidates) {
-        if (availableIds.includes(candidate)) {
-          cachedGroqModel = candidate;
-          console.log(`[Groq] Modelo selecionado com sucesso: ${cachedGroqModel}`);
-          return cachedGroqModel;
-        }
-      }
-
-      // Se nenhum dos candidatos específicos estiver na lista, pegar o primeiro modelo de texto válido
-      const textModel = availableIds.find(
-        (id) => !id.includes('whisper') && !id.includes('guard') && !id.includes('orpheus')
-      );
-      if (textModel) {
-        cachedGroqModel = textModel;
-        console.log(`[Groq] Modelo alternativo selecionado: ${cachedGroqModel}`);
-        return cachedGroqModel;
-      }
-    }
-  } catch (err) {
-    console.warn('[Groq] Erro ao listar modelos disponíveis:', err);
-  }
-
-  // Fallback padrão
-  cachedGroqModel = 'openai/gpt-oss-120b';
-  return cachedGroqModel;
-}
-
-async function analyzeWithGroqAI(videoTitle: string, author: string, transcriptSummary: string) {
-  const groqApiKey = process.env.GROQ_API_KEY;
-  if (!groqApiKey) return null;
-
-  const modelToUse = await getBestGroqModel(groqApiKey);
-
-  const prompt = `Você é um editor sênior especialista em cortes virais para TikTok, Instagram Reels e YouTube Shorts.
-Analise as informações e a transcrição do vídeo do YouTube abaixo e selecione os 15 momentos de maior potencial viral.
-
-Vídeo: "${videoTitle}"
-Canal: "${author}"
-
-Trecho da Transcrição / Tópicos:
-${transcriptSummary.slice(0, 5000)}
-
-Para cada um dos 15 cortes virais, forneça:
-1. rank: número de 1 a 15
-2. score: nota de 62 a 98 com base na força do gancho (curiosidade, polêmica, choque, humor, lição valiosa)
-3. startSec: segundo estimado de início
-4. endSec: segundo estimado de término (duração entre 30s e 55s)
-5. duration: duração em segundos
-6. title: título viral irresistível em português brasileiro (máx 12 palavras)
-7. desc: descrição persuasiva com CTA para engajamento e comentários
-8. captionWords: lista de 6 a 8 palavras-chave em caixa alta simulando a legenda dinâmica em destaque
-9. tags: lista de 5 hashtags virais relevantes com #
-
-Retorne OBRIGATORIAMENTE um objeto JSON com a chave "cuts" contendo exatamente 15 objetos, sem marcações markdown ao redor.`;
-
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${groqApiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: [
-          { role: 'system', content: 'Você é um assistente de IA focado estritamente em gerar JSON válido sem texto adicional.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 3500,
-        response_format: { type: 'json_object' },
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.warn(`[Groq API Error no modelo ${modelToUse}]:`, errText);
-      cachedGroqModel = null;
-      return null;
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) return null;
-
-    const parsed = JSON.parse(content);
-    const cutsArray = Array.isArray(parsed)
-      ? parsed
-      : (parsed.cuts || parsed.segments || parsed.cortes || Object.values(parsed).find((v) => Array.isArray(v)));
-
-    if (Array.isArray(cutsArray) && cutsArray.length >= 8) {
-      return cutsArray.slice(0, 15).map((c: any, i: number) => ({
-        rank: i + 1,
-        score: c.score || (98 - i * 2),
-        startSec: c.startSec || (i * 45 + 15),
-        endSec: c.endSec || (i * 45 + 55),
-        duration: c.duration || (c.endSec - c.startSec) || 40,
-        timeLabel: `${formatTime(c.startSec || (i * 45 + 15))} → ${formatTime(c.endSec || (i * 45 + 55))} · ${c.duration || 40}s`,
-        title: c.title,
-        desc: c.desc,
-        captionWords: Array.isArray(c.captionWords) ? c.captionWords : ['O', 'MOMENTO', 'MAIS', 'VIRAL', 'DO', 'VÍDEO!'],
-        tags: Array.isArray(c.tags) ? c.tags : ['#shorts', '#cortesvirais', '#viral', '#podcast', '#tiktok'],
-      }));
-    }
-    return null;
-  } catch (err) {
-    console.error('[Groq AI Analysis Falha]:', err);
-    return null;
-  }
-}
-
-// Gerador contextual fallback de alta qualidade quando a chave Groq não estiver setada
-function generateContextualClips(videoTitle: string, author: string, transcriptLines?: Array<{ start: number; dur: number; text: string }>) {
-  const scores = [98, 96, 95, 93, 91, 89, 87, 85, 83, 80, 77, 74, 71, 68, 64];
-
-  const viralTemplates = [
-    { hook: "O momento mais chocante revelado por {author}!", cap: ["ELE", "NÃO", "ESPERAVA", "ESSA", "RESPOSTA", "AO", "VIVO!"] },
-    { hook: "A verdade dolorosa que ninguém aceita sobre {topic}...", cap: ["PARE", "DE", "COMETER", "ESSE", "ERRO", "AGORA!"] },
-    { hook: "A frase exata que mudou completamente o rumo da conversa", cap: ["ESSA", "FRASE", "MUDOU", "TUDO", "NO", "ESTÚDIO!"] },
-    { hook: "Como destravar resultados sem perder tempo com bobagens", cap: ["O", "SEGREDO", "QUE", "NUNCA", "TE", "CONTARAM!"] },
-    { hook: "O maior erro cometido pela maioria das pessoas em {topic}", cap: ["99%", "DAS", "PESSOAS", "ERRAM", "EXATAMENTE", "AQUI!"] },
-    { hook: "A lição de ouro que economiza 5 anos da sua vida", cap: ["ESCUTE", "ISSO", "ANTES", "QUE", "SEJA", "TARDE!"] },
-    { hook: "A pergunta que deixou o estúdio em silêncio absoluto", cap: ["O", "MAIOR", "SILÊNCIO", "DA", "HISTÓRIA", "DO", "CANAL!"] },
-    { hook: "Como {author} conseguiu virar o jogo contra todas as probabilidades", cap: ["CONTRA", "TUDO", "E", "CONTRA", "TODOS!"] },
-    { hook: "O detalhe bizarro escondido bem na nossa frente", cap: ["VOCÊ", "NUNCA", "MAIS", "VAI", "OLHAR", "IGUAL!"] },
-    { hook: "A técnica comprovada para manter o foco total sob pressão", cap: ["FAÇA", "ISSO", "HOJE", "MESMO", "ANTES", "DE", "COMEÇAR!"] },
-    { hook: "A história secreta dos bastidores que nunca contaram", cap: ["OS", "BASTIDORES", "QUE", "TENTARAM", "ESCONDER!"] },
-    { hook: "Por que você está perdendo tempo (e nem percebeu ainda!)", cap: ["SEU", "TEMPO", "ESTÁ", "SENDO", "DRENADO!"] },
-    { hook: "O conselho final que salvou o projeto do fracasso", cap: ["A", "DICA", "QUE", "VALE", "UM", "MILHÃO!"] },
-    { hook: "A reação impagável quando a verdade veio à tona", cap: ["A", "CARA", "DELE", "NO", "FINAL", "DIZ", "TUDO!"] },
-    { hook: "O teste de 30 segundos para saber se você está no caminho certo", cap: ["RESPONDA", "A", "ESSA", "ÚNICA", "PERGUNTA!"] },
-  ];
-
-  const cleanTopic = videoTitle.replace(/[^a-zA-Z0-9À-ÿ\s]/g, '').trim().split(' ').slice(0, 4).join(' ') || 'alta performance';
-  const cleanAuthor = author || 'o convidado';
-
-  let currentStart = 25;
-
-  return scores.map((score, i) => {
-    const tpl = viralTemplates[i % viralTemplates.length];
-    const duration = 35 + (i % 5) * 4;
-    const startSec = transcriptLines && transcriptLines[i * 2] ? transcriptLines[i * 2].start : currentStart;
-    const endSec = startSec + duration;
-    currentStart = endSec + 20;
-
-    const title = tpl.hook.replace('{author}', cleanAuthor).replace('{topic}', cleanTopic);
-    const desc = `Trecho extraído do vídeo "${videoTitle}". ${cleanAuthor} explica os pontos cruciais e entrega a estratégia definitiva. Comente sua opinião abaixo!`;
-
-    return {
-      rank: i + 1,
-      score,
-      startSec,
-      endSec,
-      duration,
-      timeLabel: `${formatTime(startSec)} → ${formatTime(endSec)} · ${duration}s`,
-      title,
-      desc,
-      captionWords: tpl.cap,
-      tags: ['#shorts', '#cortesvirais', '#podcast', '#viral', '#reels'],
-    };
   });
 }
 
 // -----------------------------------------------------------------------------
-// ENDPOINTS DA API
+// PAINEL ADMIN DE SEGURANÇA MÁXIMA & CONFIGURAÇÃO GLOBAL DE DESIGN
 // -----------------------------------------------------------------------------
 
-// Status das integrações
-app.get('/api/status', (_req: Request, res: Response) => {
+registerAdminRoutes(app, {
+  listRecentJobs,
+  cancelProcessingJob,
+  deleteJobById,
+  purgeAllInactiveJobs,
+  verifyMediaBinaries,
+});
+
+// -----------------------------------------------------------------------------
+// ENDPOINTS DE STATUS & INFRAESTRUTURA
+// -----------------------------------------------------------------------------
+
+app.get('/api/status', async (_req: Request, res: Response) => {
+  const binaries = await verifyMediaBinaries();
+  const storage = getStorageProvider();
+
   res.json({
-    status: 'online',
-    groqConfigured: !!process.env.GROQ_API_KEY,
-    geminiConfigured: !!process.env.GEMINI_API_KEY,
+    status: binaries.available ? 'online' : 'degraded',
+    ffmpegAvailable: binaries.available,
+    ffmpegVersion: binaries.ffmpegVersion,
+    ffprobeVersion: binaries.ffprobeVersion,
+    encoders: binaries.encoders,
+    ffmpegError: binaries.error,
+    groqConfigured: Boolean(process.env.GROQ_API_KEY),
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    storageDriver: storage.driverName,
+    processingMode: CONFIG.processingMode,
+    limits: {
+      maxUploadSizeMb: CONFIG.maxUploadSizeMb,
+      maxVideoDurationSec: CONFIG.maxVideoDurationSec,
+      maxClipsPerJob: CONFIG.maxClipsPerJob,
+      maxConcurrentJobs: CONFIG.maxConcurrentJobs,
+      maxFfmpegConcurrency: CONFIG.maxFfmpegConcurrency,
+    },
     timestamp: new Date().toISOString(),
   });
 });
 
-// Processamento real do vídeo do YouTube
-app.post('/api/process-video', async (req: Request, res: Response) => {
+// -----------------------------------------------------------------------------
+// CRIAÇÃO E GERENCIAMENTO DE JOBS DE PROCESSAMENTO REAL (FFMPEG + IA)
+// -----------------------------------------------------------------------------
+
+app.post('/api/jobs', async (req: Request, res: Response) => {
+  let tempUploadPath: string | undefined;
+
   try {
-    const { url } = req.body;
-    if (!url || typeof url !== 'string') {
-      res.status(400).json({ error: 'URL do vídeo é obrigatória.' });
+    const siteCfg = getPublicSiteConfig();
+    if (siteCfg.maintenanceMode && !getAuthenticatedAdminSession(req)) {
+      res.status(503).json({
+        error: siteCfg.maintenanceMessage || 'Sistema temporariamente em manutenção pelo Administrador.',
+        code: 'MAINTENANCE_MODE',
+      });
       return;
     }
 
-    const videoId = extractYouTubeId(url);
-    if (!videoId) {
-      res.status(400).json({ error: 'Formato de URL do YouTube inválido.' });
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('multipart/form-data')) {
+      await runSingleVideoUpload(req, res);
+      tempUploadPath = req.file?.path;
+    }
+
+    // 1. Check FFmpeg / FFprobe availability
+    const binaries = await verifyMediaBinaries();
+    if (!binaries.available) {
+      if (tempUploadPath) await fs.promises.unlink(tempUploadPath).catch(() => {});
+      res.status(503).json({
+        error: binaries.error || 'FFmpeg e FFprobe não estão disponíveis no servidor.',
+        code: 'BINARY_MISSING',
+      });
       return;
     }
 
-    // 1. Extração de metadados reais do YouTube via oEmbed
-    const oEmbedData = await fetchYouTubeOEmbed(videoId);
-    const videoTitle = oEmbedData?.title || 'Vídeo do YouTube';
-    const authorName = oEmbedData?.author_name || 'Canal do YouTube';
-    const thumbnailUrl = oEmbedData?.thumbnail_url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-
-    // 2. Extração de transcrição/legendas oficiais do YouTube com timestamps
-    const transcriptData = await extractYouTubeTranscript(videoId);
-
-    // 3. Chamada da IA da Groq com LLaMA-3.3-70B
-    let cuts = null;
-    let providerUsed = 'groq';
-
-    if (process.env.GROQ_API_KEY) {
-      const summaryToAnalyze = transcriptData ? transcriptData.text : `Título: ${videoTitle}. Autor: ${authorName}.`;
-      cuts = await analyzeWithGroqAI(videoTitle, authorName, summaryToAnalyze);
+    // 2. Verify user authorization declaration
+    const rawAuth = req.body?.userAuthorized;
+    const isAuthorized = rawAuth === true || rawAuth === 'true' || rawAuth === '1' || rawAuth === 'on';
+    if (!isAuthorized) {
+      if (tempUploadPath) await fs.promises.unlink(tempUploadPath).catch(() => {});
+      res.status(400).json({
+        error: 'Confirme que você possui autorização legal ou direitos sobre o vídeo antes de iniciar o processamento.',
+        code: 'AUTHORIZATION_REQUIRED',
+      });
+      return;
     }
 
-    // Se a Groq não estiver configurada ou falhar, utiliza geração contextual inteligente
-    if (!cuts) {
-      providerUsed = process.env.GROQ_API_KEY ? 'groq_fallback' : 'contextual_engine';
-      cuts = generateContextualClips(videoTitle, authorName, transcriptData?.lines);
+    // 3. Parse & sanitize export settings strictly against whitelists
+    let parsedSettingsRaw: unknown = req.body?.exportSettings;
+    if (typeof parsedSettingsRaw === 'string') {
+      try {
+        parsedSettingsRaw = JSON.parse(parsedSettingsRaw);
+      } catch {
+        parsedSettingsRaw = {};
+      }
+    } else if (!parsedSettingsRaw && req.body) {
+      parsedSettingsRaw = {
+        aspectRatio: req.body.aspectRatio,
+        resolution: req.body.resolution,
+        framingMode: req.body.framingMode,
+        fps: req.body.fps,
+        quality: req.body.quality,
+        videoBitrateKbps: req.body.videoBitrateKbps,
+        audioBitrateKbps: req.body.audioBitrateKbps,
+        maxClips: req.body.maxClips,
+      };
+    }
+    const exportSettings = sanitizeExportSettings(parsedSettingsRaw);
+
+    const authorizedMediaUrl =
+      typeof req.body?.authorizedMediaUrl === 'string'
+        ? req.body.authorizedMediaUrl.trim()
+        : typeof req.body?.mediaUrl === 'string'
+        ? req.body.mediaUrl.trim()
+        : '';
+
+    const youtubeRefUrl =
+      typeof req.body?.youtubeRefUrl === 'string' ? req.body.youtubeRefUrl.trim() : '';
+
+    const customTitle =
+      typeof req.body?.customTitle === 'string' ? req.body.customTitle.trim().slice(0, 140) : '';
+
+    const forceReprocess = req.body?.forceReprocess === true || req.body?.forceReprocess === 'true';
+
+    // 4. Validate video source
+    if (req.file && tempUploadPath) {
+      validateUploadedFileExtensionAndMime(req.file.originalname, req.file.mimetype);
+
+      const { job, deduplicated } = await createAndStartProcessingJob({
+        uploadedFile: {
+          tempFilePath: tempUploadPath,
+          originalName: req.file.originalname,
+          mimeType: req.file.mimetype,
+          sizeBytes: req.file.size,
+        },
+        youtubeRefUrl: youtubeRefUrl || undefined,
+        customTitle: customTitle || undefined,
+        exportSettings,
+        forceReprocess,
+      });
+
+      // Ownership of tempUploadPath transferred to job pipeline
+      tempUploadPath = undefined;
+
+      res.status(deduplicated ? 200 : 202).json({
+        success: true,
+        deduplicated,
+        jobId: job.id,
+        job,
+      });
+      return;
     }
 
-    res.json({
-      success: true,
-      video: {
-        id: videoId,
-        url: `https://www.youtube.com/watch?v=${videoId}`,
-        title: videoTitle,
-        author: authorName,
-        thumbnail: thumbnailUrl,
-        hasRealTranscript: !!transcriptData,
-        transcriptWordsCount: transcriptData ? transcriptData.lines.length * 5 : 0,
-      },
-      provider: providerUsed,
-      cuts,
+    if (req.body?.providerName === 'google_drive' && typeof req.body?.providerFileId === 'string') {
+      const { job, deduplicated } = await createAndStartProcessingJob({
+        providerSource: {
+          name: 'google_drive',
+          fileId: req.body.providerFileId.trim(),
+          accessToken:
+            typeof req.body.providerAccessToken === 'string' ? req.body.providerAccessToken.trim() : undefined,
+        },
+        youtubeRefUrl: youtubeRefUrl || undefined,
+        customTitle: customTitle || undefined,
+        exportSettings,
+        forceReprocess,
+      });
+
+      res.status(deduplicated ? 200 : 202).json({
+        success: true,
+        deduplicated,
+        jobId: job.id,
+        job,
+      });
+      return;
+    }
+
+    if (authorizedMediaUrl) {
+      if (isYouTubeWatchOrShareUrl(authorizedMediaUrl)) {
+        res.status(422).json({
+          error:
+            'Uma URL do YouTube não é um arquivo de mídia baixável diretamente e o ClipFire não contorna restrições de acesso ou DRM. Envie o arquivo de vídeo autorizado (.mp4, .mov, .webm, .mkv) do seu dispositivo (você pode manter o link do YouTube como referência opcional de título e legendas) ou informe uma URL direta autorizada para o arquivo de vídeo.',
+          code: 'YOUTUBE_DIRECT_MEDIA_REQUIRED',
+        });
+        return;
+      }
+
+      await assertSafeExternalUrl(authorizedMediaUrl);
+
+      const { job, deduplicated } = await createAndStartProcessingJob({
+        authorizedMediaUrl,
+        youtubeRefUrl: youtubeRefUrl || undefined,
+        customTitle: customTitle || undefined,
+        exportSettings,
+        forceReprocess,
+      });
+
+      res.status(deduplicated ? 200 : 202).json({
+        success: true,
+        deduplicated,
+        jobId: job.id,
+        job,
+      });
+      return;
+    }
+
+    if (youtubeRefUrl) {
+      res.status(422).json({
+        error:
+          'Você informou apenas uma URL do YouTube. Para gerar cortes reais em MP4 com FFmpeg sem violar proteções da plataforma, selecione também o arquivo de vídeo autorizado (.mp4, .mov, .webm, .mkv) no seu dispositivo ou informe uma URL direta para o arquivo de mídia.',
+        code: 'MEDIA_FILE_REQUIRED',
+      });
+      return;
+    }
+
+    res.status(400).json({
+      error:
+        'Nenhum vídeo foi fornecido. Faça upload de um arquivo de vídeo (.mp4, .mov, .webm, .mkv) ou forneça uma URL direta autorizada para a mídia.',
+      code: 'MISSING_VIDEO_SOURCE',
     });
-  } catch (error: any) {
-    console.error('[API /api/process-video Erro]:', error);
-    res.status(500).json({ error: 'Erro ao processar o vídeo do YouTube: ' + (error.message || 'Erro interno') });
+  } catch (err: any) {
+    if (tempUploadPath) {
+      await fs.promises.unlink(tempUploadPath).catch(() => {});
+    }
+    const status = err instanceof VideoSourceError ? err.statusCode : 500;
+    const code = err?.code || 'JOB_CREATE_ERROR';
+    res.status(status).json({
+      error: err?.message || 'Erro ao iniciar processamento do vídeo.',
+      code,
+    });
   }
 });
 
-// Simulador de Checkout (Pix & Cartão de Crédito)
+app.get('/api/jobs', async (_req: Request, res: Response) => {
+  const jobs = await listRecentJobs(25);
+  res.json({ success: true, jobs });
+});
+
+app.get('/api/jobs/:jobId', async (req: Request, res: Response) => {
+  const job = await getJobById(String(req.params.jobId || ''));
+  if (!job) {
+    res.status(404).json({ error: 'Processamento não encontrado ou expirado.', code: 'JOB_NOT_FOUND' });
+    return;
+  }
+  res.json({ success: true, job });
+});
+
+// Server-Sent Events (SSE) for real-time FFmpeg progress updates
+app.get('/api/jobs/:jobId/events', async (req: Request, res: Response) => {
+  const jobId = String(req.params.jobId || '');
+  const initialJob = await getJobById(jobId);
+  if (!initialJob) {
+    res.status(404).json({ error: 'Processamento não encontrado.', code: 'JOB_NOT_FOUND' });
+    return;
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+
+  const sendEvent = (payload: unknown) => {
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  sendEvent(initialJob);
+
+  if (!isJobActiveStatus(initialJob.status)) {
+    res.end();
+    return;
+  }
+
+  const listener = (updatedJob: any) => {
+    sendEvent(updatedJob);
+    if (!isJobActiveStatus(updatedJob.status)) {
+      cleanup();
+      res.end();
+    }
+  };
+
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n');
+  }, 15000);
+  heartbeat.unref?.();
+
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    jobEvents.removeListener(`job:${jobId}`, listener);
+  };
+
+  jobEvents.on(`job:${jobId}`, listener);
+  req.on('close', cleanup);
+});
+
+// Real cancellation endpoint: kills active FFmpeg processes & removes temp files
+app.post('/api/jobs/:jobId/cancel', async (req: Request, res: Response) => {
+  const jobId = String(req.params.jobId || '');
+  const cancelled = await cancelProcessingJob(jobId);
+  if (!cancelled) {
+    res.status(404).json({ error: 'Processamento não encontrado.', code: 'JOB_NOT_FOUND' });
+    return;
+  }
+  res.json({
+    success: true,
+    message: 'Processamento cancelado e processos FFmpeg encerrados.',
+    job: cancelled,
+  });
+});
+
+// -----------------------------------------------------------------------------
+// STREAMING DE PRÉVIA (HTTP RANGE) E DOWNLOAD DE MP4 ASSINADO
+// -----------------------------------------------------------------------------
+
+app.get('/api/media/:jobId/:fileName', async (req: Request, res: Response) => {
+  try {
+    const jobId = String(req.params.jobId || '');
+    const fileName = String(req.params.fileName || '');
+    assertSafeStorageSegment(jobId, fileName);
+
+    const exp = Number(req.query.exp);
+    const dlFlag = req.query.dl === '1' ? '1' : '0';
+    const sig = String(req.query.sig || '');
+
+    if (!verifySignedToken(`media:${jobId}:${fileName}:${dlFlag}`, exp, sig)) {
+      res.status(403).json({ error: 'URL de mídia expirada ou assinatura inválida.', code: 'INVALID_SIGNATURE' });
+      return;
+    }
+
+    const storage = getStorageProvider();
+    const check = await storage.artifactExists(jobId, fileName);
+    if (!check.exists || check.sizeBytes <= 0) {
+      res.status(404).json({ error: 'Arquivo de mídia não encontrado no armazenamento.', code: 'MEDIA_NOT_FOUND' });
+      return;
+    }
+
+    const isMp4 = fileName.endsWith('.mp4');
+    const contentType = isMp4 ? 'video/mp4' : fileName.endsWith('.jpg') ? 'image/jpeg' : 'application/octet-stream';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+
+    if (dlFlag === '1') {
+      const requestedName = typeof req.query.name === 'string' ? req.query.name : fileName;
+      const safeDownloadName = requestedName.replace(/[^\w.\- ]+/g, '_').slice(0, 100) || fileName;
+      res.setHeader('Content-Disposition', `attachment; filename="${safeDownloadName}"`);
+    } else {
+      res.setHeader('Content-Disposition', 'inline');
+    }
+
+    const totalSize = check.sizeBytes;
+    const rangeHeader = req.headers.range;
+
+    if (req.method === 'HEAD') {
+      res.setHeader('Content-Length', String(totalSize));
+      res.status(200).end();
+      return;
+    }
+
+    if (rangeHeader && isMp4) {
+      const match = rangeHeader.match(/bytes=(\d*)-(\d*)/);
+      if (match) {
+        const start = match[1] ? Number.parseInt(match[1], 10) : 0;
+        const end = match[2] ? Number.parseInt(match[2], 10) : totalSize - 1;
+
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= totalSize) {
+          res.status(416).setHeader('Content-Range', `bytes */${totalSize}`).end();
+          return;
+        }
+
+        const clampedEnd = Math.min(end, totalSize - 1);
+        const chunkSize = clampedEnd - start + 1;
+
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${clampedEnd}/${totalSize}`);
+        res.setHeader('Content-Length', String(chunkSize));
+
+        const stream = await storage.openArtifactStream(jobId, fileName, { start, end: clampedEnd });
+        stream.on('error', () => {
+          if (!res.headersSent) res.status(500).end();
+          else res.destroy();
+        });
+        stream.pipe(res);
+        return;
+      }
+    }
+
+    res.status(200);
+    res.setHeader('Content-Length', String(totalSize));
+    const stream = await storage.openArtifactStream(jobId, fileName);
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+      else res.destroy();
+    });
+    stream.pipe(res);
+  } catch (err: any) {
+    if (!res.headersSent) {
+      res.status(400).json({ error: err?.message || 'Requisição de mídia inválida.' });
+    }
+  }
+});
+
+// -----------------------------------------------------------------------------
+// DOWNLOAD REAL DE TODOS OS CORTES EM UM ÚNICO ARQUIVO ZIP
+// -----------------------------------------------------------------------------
+
+app.get('/api/jobs/:jobId/download-zip', async (req: Request, res: Response) => {
+  try {
+    const jobId = String(req.params.jobId || '');
+    assertSafeStorageSegment(jobId);
+
+    const exp = Number(req.query.exp);
+    const sig = String(req.query.sig || '');
+    if (!verifySignedToken(`zip:${jobId}`, exp, sig)) {
+      res.status(403).json({ error: 'Link de download ZIP expirado ou inválido.', code: 'INVALID_SIGNATURE' });
+      return;
+    }
+
+    const job = await getJobById(jobId);
+    if (!job || job.status !== 'completed' || !job.cuts || job.cuts.length === 0) {
+      res.status(404).json({ error: 'Cortes não disponíveis para compactação ZIP.', code: 'JOB_NOT_READY' });
+      return;
+    }
+
+    const storage = getStorageProvider();
+    const verifiedClips = [];
+    for (const clip of job.cuts) {
+      if (!clip.validated || !clip.fileName) continue;
+      const check = await storage.artifactExists(jobId, clip.fileName);
+      if (check.exists && check.sizeBytes > 0) {
+        verifiedClips.push(clip);
+      }
+    }
+
+    if (verifiedClips.length === 0) {
+      res.status(404).json({
+        error: 'Os arquivos MP4 deste processamento já expiraram ou não foram encontrados.',
+        code: 'FILES_MISSING',
+      });
+      return;
+    }
+
+    if (req.method === 'HEAD') {
+      res.status(200).end();
+      return;
+    }
+
+    const safeVideoSlug = (job.video?.title || 'clipfire')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 36);
+
+    const zipName = `clipfire-${safeVideoSlug || 'cortes'}-${verifiedClips.length}-mp4.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+    res.setHeader('Cache-Control', 'no-store');
+
+    // Use store: true because MP4 (H.264/AAC) is already compressed — streams fast with minimal CPU/RAM
+    const archive = createZipArchive({ store: true });
+
+    archive.on('error', (err: any) => {
+      console.error('[ZIP Stream Error]:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Falha ao gerar arquivo ZIP.' });
+      } else {
+        res.destroy();
+      }
+    });
+
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        archive.abort();
+      }
+    });
+
+    archive.pipe(res);
+
+    // Include a clean metadata summary text file alongside all real MP4 clips
+    const metadataReport = [
+      `ClipFire — Relatório de Cortes Renderizados com FFmpeg`,
+      `Vídeo Original: ${job.video?.title || 'N/A'}`,
+      `Resolução Original: ${job.video?.width}x${job.video?.height} (${job.video?.durationSec}s)`,
+      `Configuração de Exportação: ${job.exportSettings.aspectRatio} | ${job.exportSettings.resolution} | ${job.exportSettings.framingMode} | Qualidade: ${job.exportSettings.quality}`,
+      `Gerado em: ${job.completedAt || job.updatedAt}`,
+      `------------------------------------------------------------`,
+      '',
+      ...verifiedClips.map(
+        (c) =>
+          `Corte #${String(c.rank).padStart(2, '0')} [Score ${c.score}/100]\n` +
+          `Intervalo: ${c.timeLabel}\n` +
+          `Arquivo: ${c.resolutionLabel} | ${c.actualDurationSec}s | ${(c.sizeBytes / (1024 * 1024)).toFixed(2)} MB | ${c.videoCodec.toUpperCase()}${c.audioCodec ? '+' + c.audioCodec.toUpperCase() : ''}\n` +
+          `Título: ${c.title}\n` +
+          `Descrição: ${c.desc}\n` +
+          `Hashtags: ${c.tags.join(' ')}\n`
+      ),
+    ].join('\n');
+
+    archive.append(metadataReport, { name: '00-metadados-dos-cortes.txt' });
+
+    for (const clip of verifiedClips) {
+      const slug = clip.title
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 42);
+      const entryName = `${String(clip.rank).padStart(2, '0')}-score${clip.score}-${slug || 'corte'}.mp4`;
+      const clipStream = await storage.openArtifactStream(jobId, clip.fileName);
+      archive.append(clipStream as any, { name: entryName });
+    }
+
+    await archive.finalize();
+  } catch (err: any) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: err?.message || 'Erro ao gerar pacote ZIP dos cortes.' });
+    }
+  }
+});
+
+// -----------------------------------------------------------------------------
+// ENDPOINT LEGADO /api/process-video (SEM SIMULAÇÃO — EXIGE MÍDIA AUTORIZADA)
+// -----------------------------------------------------------------------------
+
+app.post('/api/process-video', (_req: Request, res: Response) => {
+  res.status(422).json({
+    error:
+      'O ClipFire agora opera exclusivamente com renderização real via FFmpeg (/api/jobs). Uma URL do YouTube isolada não é um arquivo de vídeo baixável. Envie o arquivo de vídeo autorizado (.mp4, .mov, .webm, .mkv) ou uma URL direta autorizada para o arquivo de mídia.',
+    code: 'REAL_MEDIA_REQUIRED',
+  });
+});
+
+// Simulador de Checkout (Pix & Cartão de Crédito — Sistema de Planos)
 app.post('/api/checkout-simulate', (req: Request, res: Response) => {
-  const { plan, method, paymentDetails } = req.body;
+  const { plan, method } = req.body;
   if (!plan || !['Pro', 'Turbo'].includes(plan)) {
     res.status(400).json({ error: 'Plano inválido para checkout.' });
     return;
@@ -379,27 +695,63 @@ app.post('/api/checkout-simulate', (req: Request, res: Response) => {
   });
 });
 
+// Global API Error Guard
+app.use('/api', (err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[API Unhandled Error]:', err);
+  if (!res.headersSent) {
+    res.status(err?.statusCode || 500).json({
+      error: err?.message || 'Erro interno no servidor.',
+      code: err?.code || 'INTERNAL_ERROR',
+    });
+  }
+});
+
 // -----------------------------------------------------------------------------
 // INTEGRAÇÃO COM VITE (DEV MIDDLEWARE OU STATIC DIST)
 // -----------------------------------------------------------------------------
 async function startServer() {
+  await initJobManager();
+  const binaries = await verifyMediaBinaries();
+
+  const httpServer = http.createServer(app);
+  httpServer.keepAliveTimeout = 65_000;
+  httpServer.headersTimeout = 66_000;
+
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        allowedHosts: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    const distDir = path.resolve(__dirname, 'dist');
+    app.use(
+      '/assets',
+      express.static(path.join(distDir, 'assets'), {
+        immutable: true,
+        maxAge: '365d',
+        etag: true,
+      })
+    );
+    app.use(express.static(distDir, { maxAge: '1h', etag: true }));
     app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.join(distDir, 'index.html'));
     });
   }
 
-  app.listen(PORT, () => {
-    console.log(`[ClipFire] Servidor full-stack rodando em http://localhost:${PORT}`);
-    console.log(`[ClipFire] Groq API: ${process.env.GROQ_API_KEY ? 'Configurada ✅' : 'Chave não detectada (usando motor contextual)'}`);
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`[ClipFire] Servidor full-stack rodando em http://0.0.0.0:${PORT}`);
+    console.log(
+      `[ClipFire] FFmpeg: ${binaries.available ? `Ativo ✅ (${binaries.ffmpegVersion})` : `Indisponível ❌ (${binaries.error})`}`
+    );
+    console.log(
+      `[ClipFire] Groq API: ${process.env.GROQ_API_KEY ? 'Configurada ✅' : 'Chave não detectada (FFmpeg silencedetect + motor contextual)'}`
+    );
   });
 }
 

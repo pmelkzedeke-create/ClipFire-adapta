@@ -2,7 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0605" />
+  <meta name="color-scheme" content="dark" />
   <title>ClipFire — Gerador de Cortes Virais de YouTube com IA</title>
   <meta name="description" content="SaaS de cortes virais de YouTube com IA. Transcrição com Groq Whisper, análise de retenção e 15 cortes virais ranqueados com títulos e hashtags." />
   <meta property="og:title" content="ClipFire — Gerador de Cortes Virais de YouTube com IA" />
@@ -1656,9 +1658,2286 @@
         transform: none !important;
       }
     }
+
+    /* ==========================================================================
+       FFMPEG REAL PIPELINE — UPLOAD, EXPORT CONFIG & REAL VIDEO PLAYER MODAL
+       ========================================================================== */
+    .cf-source-tabs {
+      display: inline-flex;
+      gap: 0.4rem;
+      background: rgba(10, 6, 4, 0.72);
+      padding: 4px;
+      border-radius: var(--cf-radius-pill);
+      border: 1px solid var(--cf-border);
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .cf-source-tab {
+      padding: 0.5rem 1.15rem;
+      border-radius: var(--cf-radius-pill);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--cf-text-muted);
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      transition: all 0.2s ease;
+    }
+
+    .cf-source-tab.cf-source-active {
+      background: rgba(255, 106, 0, 0.2);
+      color: var(--cf-accent-amber);
+      border-color: rgba(255, 154, 60, 0.42);
+    }
+
+    .cf-upload-dropzone {
+      border: 1.5px dashed rgba(255, 170, 80, 0.35);
+      background: rgba(16, 9, 6, 0.78);
+      border-radius: 22px;
+      padding: 1.75rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .cf-upload-dropzone:hover,
+    .cf-upload-dropzone.cf-drag-over {
+      border-color: var(--cf-accent);
+      background: rgba(255, 106, 0, 0.08);
+      box-shadow: 0 0 28px rgba(255, 106, 0, 0.2);
+    }
+
+    .cf-file-selected-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.85rem;
+      background: rgba(255, 106, 0, 0.12);
+      border: 1px solid rgba(255, 154, 60, 0.38);
+      border-radius: 16px;
+      padding: 0.75rem 1.1rem;
+      margin-top: 0.85rem;
+      text-align: left;
+      flex-wrap: wrap;
+    }
+
+    .cf-file-selected-bar.cf-show {
+      display: flex;
+    }
+
+    .cf-export-panel {
+      margin-top: 1.25rem;
+      padding: 1.25rem 1.4rem;
+      background: rgba(12, 7, 5, 0.72);
+      border: 1px solid rgba(255, 170, 80, 0.16);
+      border-radius: 20px;
+    }
+
+    .cf-export-panel-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--cf-accent-amber);
+      margin-bottom: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .cf-export-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 0.85rem;
+    }
+
+    .cf-export-field label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--cf-text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .cf-export-select {
+      width: 100%;
+      padding: 0.62rem 0.85rem;
+      background: rgba(22, 12, 8, 0.92);
+      border: 1px solid var(--cf-border);
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 0.86rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .cf-export-select:focus {
+      border-color: var(--cf-accent);
+    }
+
+    .cf-export-select:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .cf-auth-consent-row {
+      margin-top: 1.1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      font-size: 0.85rem;
+      color: var(--cf-text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cf-auth-consent-row input[type="checkbox"] {
+      margin-top: 3px;
+      accent-color: var(--cf-accent);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .cf-progress-fill.cf-progress-indeterminate {
+      width: 38% !important;
+      animation: cf-indeterminate-slide 1.4s ease-in-out infinite alternate;
+    }
+
+    @keyframes cf-indeterminate-slide {
+      0% { transform: translateX(-15%); }
+      100% { transform: translateX(175%); }
+    }
+
+    .cf-player-pill-meta {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #ded6d0;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(8px);
+      padding: 0.2rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 170, 80, 0.22);
+      z-index: 2;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Real Video Preview Modal */
+    .cf-video-modal-box {
+      max-width: 780px;
+      width: 100%;
+      padding: 1.6rem 1.75rem;
+      text-align: left;
+      animation: cf-scale-in 0.3s var(--cf-ease-apple);
+    }
+
+    .cf-video-modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .cf-video-stage {
+      background: #050302;
+      border: 1px solid var(--cf-border);
+      border-radius: 18px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-height: 64vh;
+      position: relative;
+    }
+
+    .cf-video-stage video {
+      max-width: 100%;
+      max-height: 64vh;
+      width: auto;
+      height: auto;
+      display: block;
+      outline: none;
+    }
+
+    .cf-video-controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.95rem;
+      padding: 0.7rem 1rem;
+      background: rgba(14, 8, 5, 0.88);
+      border: 1px solid rgba(255, 170, 80, 0.2);
+      border-radius: 14px;
+      flex-wrap: wrap;
+    }
+
+    .cf-ctrl-icon-btn {
+      background: rgba(255, 106, 0, 0.16);
+      border: 1px solid rgba(255, 154, 60, 0.35);
+      color: #ffffff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+
+    .cf-ctrl-icon-btn:hover {
+      background: rgba(255, 106, 0, 0.35);
+      transform: scale(1.05);
+    }
+
+    .cf-seek-slider {
+      flex: 1;
+      min-width: 120px;
+      accent-color: var(--cf-accent);
+      cursor: pointer;
+    }
+
+    .cf-vol-slider {
+      width: 78px;
+      accent-color: var(--cf-accent-amber);
+      cursor: pointer;
+    }
+
+    .cf-time-readout {
+      font-size: 0.78rem;
+      color: var(--cf-text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* ==========================================================================
+       EXPO-GLASS-EFFECT — WARM ORANGE AMBIENT + APPLE LIQUID GLASS DISTORTION
+       ========================================================================== */
+    :root {
+      --cf-bg: #0a0605;
+      --cf-surface: rgba(24, 12, 7, 0.28);
+      --cf-surface-card: rgba(255, 145, 55, 0.045);
+      --cf-surface-card-hover: rgba(255, 155, 65, 0.085);
+      --cf-surface-elevated: rgba(20, 10, 6, 0.38);
+      --cf-border: rgba(255, 170, 80, 0.20);
+      --cf-border-bright: rgba(255, 190, 105, 0.44);
+      --cf-text: #fdfcfa;
+      --cf-text-muted: #b8aba4;
+      --cf-text-dim: #7a6e67;
+
+      --expo-ambient-x: 0px;
+      --expo-ambient-y: 0px;
+
+      /* Low-blur fallback so distortion & refraction remain sharp and liquid */
+      --expo-glass-blur-regular: 14px;
+      --expo-glass-blur-clear: 8px;
+
+      /* Thick 3D Apple Liquid Meniscus (Warm Amber + Diamond Specular Lip) */
+      --apple-glass-meniscus:
+        inset 0 1.5px 0 0 rgba(255, 244, 232, 0.58),
+        inset 0 14px 28px -10px rgba(255, 175, 95, 0.18),
+        inset 1.5px 0 0 0 rgba(255, 210, 165, 0.16),
+        inset -1.5px 0 0 0 rgba(255, 145, 55, 0.12),
+        inset 0 -1.5px 0 0 rgba(255, 154, 62, 0.26),
+        inset 0 -18px 34px -14px rgba(0, 0, 0, 0.72);
+
+      --apple-glass-elevation:
+        0 28px 65px -12px rgba(0, 0, 0, 0.82),
+        0 6px 22px 0 rgba(0, 0, 0, 0.60);
+    }
+
+    /* Original Warm Orangish Ambient Background (#0a0605 + Soft Orange Glow) */
+    body {
+      background-color: var(--cf-bg);
+      background-image:
+        radial-gradient(ellipse 80% 55% at 50% -10%, rgba(255, 106, 0, 0.22), transparent 72%),
+        radial-gradient(ellipse 65% 50% at 88% 42%, rgba(255, 154, 60, 0.15), transparent 75%),
+        radial-gradient(ellipse 65% 55% at 12% 82%, rgba(230, 81, 0, 0.16), transparent 75%);
+      background-attachment: fixed;
+      color: var(--cf-text);
+      letter-spacing: -0.014em;
+    }
+
+    /* Original Smooth Floating Orange Orbs (No Grid, No Hard Lines) */
+    .cf-orbs-container {
+      transform: translate3d(var(--expo-ambient-x), var(--expo-ambient-y), 0);
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .cf-orb {
+      filter: blur(120px);
+      opacity: 0.38;
+    }
+
+    /* Zero-specificity fallback so fixed/sticky/absolute elements keep their positioning */
+    :where([data-expo-glass]) {
+      position: relative;
+    }
+
+    [data-expo-glass-container] {
+      position: relative;
+    }
+
+    /* Apple Liquid Glass Warm Specular Fresnel Rim (`1.35px`) */
+    [data-expo-glass]:not(input):not(select):not(textarea):not([data-expo-glass="none"])::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: var(--expo-rim-width, 1.35px);
+      background: linear-gradient(
+        var(--expo-rim-angle, 138deg),
+        rgba(255, 252, 246, 0.82) 0%,
+        rgba(255, 186, 115, 0.42) 22%,
+        rgba(255, 255, 255, 0.06) 50%,
+        rgba(255, 118, 24, 0.34) 78%,
+        rgba(255, 232, 200, 0.62) 100%
+      );
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Fallback before JS attaches exact per-element `url(#cf-lg-...)` optical displacement */
+    [data-expo-glass="regular"] {
+      -webkit-backdrop-filter: blur(var(--expo-glass-blur-regular)) saturate(195%) contrast(1.08);
+      backdrop-filter: blur(var(--expo-glass-blur-regular)) saturate(195%) contrast(1.08);
+    }
+
+    [data-expo-glass="clear"] {
+      -webkit-backdrop-filter: blur(var(--expo-glass-blur-clear)) saturate(205%) contrast(1.10);
+      backdrop-filter: blur(var(--expo-glass-blur-clear)) saturate(205%) contrast(1.10);
+    }
+
+    /* Sticky Floating Apple Liquid Lens Navbar (Pure Transparent Distortion Capsule) */
+    .cf-header-inner {
+      background:
+        radial-gradient(circle 200px at var(--gx, 50%) var(--gy, -40%), rgba(255, 230, 200, calc(var(--g-alpha, 0) * 0.20)), transparent 68%),
+        linear-gradient(180deg, rgba(255, 235, 215, 0.13) 0%, rgba(255, 128, 32, 0.04) 48%, rgba(8, 3, 1, 0.28) 100%),
+        rgba(12, 5, 2, 0.20);
+      border: 1px solid rgba(255, 190, 128, 0.22);
+      box-shadow:
+        inset 0 1.5px 0 0 rgba(255, 248, 240, 0.62),
+        inset 0 10px 22px -8px rgba(255, 175, 95, 0.22),
+        inset 0 -1.5px 0 0 rgba(255, 140, 48, 0.28),
+        0 22px 54px -10px rgba(0, 0, 0, 0.90),
+        0 4px 18px rgba(0, 0, 0, 0.70);
+    }
+
+    .cf-logo-mark {
+      background: linear-gradient(180deg, #ff9233 0%, #ff5800 100%);
+      box-shadow:
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.68),
+        inset 0 -2px 4px rgba(110, 22, 0, 0.55),
+        0 4px 18px rgba(255, 98, 0, 0.52);
+    }
+
+    .cf-nav-link {
+      color: #cbbdb4;
+      border: 1px solid transparent;
+      transition: all 0.22s var(--cf-ease-apple);
+    }
+
+    .cf-nav-link:hover {
+      color: #ffffff;
+      background: linear-gradient(180deg, rgba(255, 235, 215, 0.14) 0%, rgba(255, 120, 24, 0.08) 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 245, 235, 0.38), 0 4px 14px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Apple Display Typography in Warm Titanium & Ember Orange */
+    .cf-hero-title {
+      letter-spacing: -0.046em;
+      color: #ffffff;
+      text-shadow: 0 12px 34px rgba(0, 0, 0, 0.85);
+    }
+
+    .cf-hero-title span {
+      background: linear-gradient(180deg, #ffffff 0%, #ffd4a8 38%, #ff7b1a 78%, #ff4d00 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cf-section-title {
+      letter-spacing: -0.036em;
+      color: #fcfaf8;
+    }
+
+    /* Hero Liquid Glass Showcase Capsule Strip */
+    .cf-hero-glass-strip {
+      margin: 2.5rem auto 0;
+      padding: 0.62rem 0.85rem;
+      max-width: 830px;
+      border-radius: var(--cf-radius-pill);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      background:
+        radial-gradient(circle 200px at var(--gx, 50%) var(--gy, 0%), rgba(255, 220, 185, calc(var(--g-alpha, 0) * 0.18)), transparent 68%),
+        linear-gradient(180deg, rgba(255, 238, 220, 0.11) 0%, rgba(255, 122, 24, 0.04) 48%, rgba(10, 4, 2, 0.24) 100%),
+        rgba(12, 5, 2, 0.18);
+      border: 1px solid rgba(255, 185, 120, 0.22);
+      box-shadow: var(--apple-glass-meniscus), var(--apple-glass-elevation);
+    }
+
+    .cf-hero-glass-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.42rem 0.92rem;
+      border-radius: var(--cf-radius-pill);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #f7efe9;
+      background:
+        linear-gradient(180deg, rgba(255, 245, 235, 0.12) 0%, rgba(255, 118, 20, 0.06) 100%),
+        rgba(14, 6, 2, 0.22);
+      border: 1px solid rgba(255, 190, 130, 0.22);
+      box-shadow: inset 0 1px 0 rgba(255, 248, 240, 0.40), 0 4px 12px rgba(0, 0, 0, 0.55);
+      transition: transform 0.22s var(--cf-ease-apple), background 0.22s ease;
+    }
+
+    .cf-hero-glass-chip:hover {
+      color: #ffffff;
+      transform: translateY(-1.5px);
+      background:
+        linear-gradient(180deg, rgba(255, 245, 235, 0.20) 0%, rgba(255, 118, 20, 0.14) 100%),
+        rgba(18, 8, 3, 0.28);
+    }
+
+    .cf-hero-glass-chip svg {
+      width: 14px;
+      height: 14px;
+      color: #ff8524;
+      flex-shrink: 0;
+    }
+
+    /* Universal Dark-Orange Apple Liquid Glass Cards (0.22 Alpha -> 78% Live Optical Distortion!) */
+    .cf-glass-card {
+      background:
+        radial-gradient(circle 260px at var(--gx, 50%) var(--gy, -10%), rgba(255, 224, 190, calc(var(--g-alpha, 0) * 0.18)), rgba(255, 128, 32, calc(var(--g-alpha, 0) * 0.06)) 45%, transparent 70%),
+        linear-gradient(132deg, rgba(255, 242, 228, 0.12) 0%, rgba(255, 145, 52, 0.035) 28%, rgba(0, 0, 0, 0) 52%, rgba(255, 132, 38, 0.05) 100%),
+        rgba(14, 6, 2, 0.22);
+      border: 1px solid rgba(255, 185, 120, 0.18);
+      box-shadow: var(--apple-glass-meniscus), var(--apple-glass-elevation);
+    }
+
+    .cf-glass-card:hover {
+      background:
+        radial-gradient(circle 280px at var(--gx, 50%) var(--gy, 15%), rgba(255, 232, 204, calc(var(--g-alpha, 0) * 0.22)), rgba(255, 128, 32, calc(var(--g-alpha, 0) * 0.08)) 45%, transparent 70%),
+        linear-gradient(132deg, rgba(255, 245, 235, 0.15) 0%, rgba(255, 145, 52, 0.055) 30%, rgba(0, 0, 0, 0) 52%, rgba(255, 132, 38, 0.07) 100%),
+        rgba(18, 8, 3, 0.26);
+      border-color: rgba(255, 195, 130, 0.34);
+      box-shadow:
+        inset 0 1.5px 0 0 rgba(255, 250, 244, 0.72),
+        inset 0 16px 30px -10px rgba(255, 175, 95, 0.24),
+        inset 1.5px 0 0 0 rgba(255, 215, 175, 0.22),
+        inset -1.5px 0 0 0 rgba(255, 145, 55, 0.16),
+        inset 0 -1.5px 0 0 rgba(255, 154, 62, 0.32),
+        inset 0 -18px 36px -14px rgba(0, 0, 0, 0.80),
+        0 34px 76px -12px rgba(0, 0, 0, 0.94),
+        0 0 36px rgba(255, 98, 0, 0.14);
+    }
+
+    /* Featured Pro Card: Rich Translucent Amber-Orange Liquid Crystal */
+    .cf-pricing-card.cf-pricing-featured {
+      overflow: visible;
+      background:
+        radial-gradient(circle 280px at var(--gx, 50%) var(--gy, 0%), rgba(255, 175, 98, calc(var(--g-alpha, 0) * 0.22)), transparent 68%),
+        linear-gradient(135deg, rgba(255, 126, 28, 0.22) 0%, rgba(255, 92, 0, 0.06) 42%, rgba(12, 5, 2, 0.28) 100%),
+        rgba(18, 7, 2, 0.26);
+      border: 1.5px solid rgba(255, 142, 45, 0.55);
+      box-shadow:
+        inset 0 1.5px 0 0 rgba(255, 246, 236, 0.75),
+        inset 0 16px 32px -10px rgba(255, 136, 38, 0.26),
+        inset 0 -1.5px 0 0 rgba(255, 126, 32, 0.38),
+        0 32px 72px -12px rgba(0, 0, 0, 0.95),
+        0 0 48px -10px rgba(255, 98, 0, 0.32);
+    }
+
+    /* Translucent 3D Liquid Glass Buttons (Orange Liquid Lens & Clear Smoked Lens) */
+    .cf-btn-primary {
+      background:
+        radial-gradient(circle 120px at var(--gx, 50%) var(--gy, 0%), rgba(255, 255, 255, calc(var(--g-alpha, 0) * 0.34)), transparent 68%),
+        linear-gradient(180deg, rgba(255, 156, 62, 0.72) 0%, rgba(255, 92, 0, 0.58) 52%, rgba(210, 58, 0, 0.70) 100%);
+      border: 1px solid rgba(255, 232, 205, 0.48);
+      box-shadow:
+        inset 0 1.5px 0.5px rgba(255, 255, 255, 0.78),
+        inset 0 10px 18px -6px rgba(255, 255, 255, 0.32),
+        inset 0 -2px 6px rgba(95, 20, 0, 0.55),
+        0 12px 30px -4px rgba(255, 94, 0, 0.52),
+        0 2px 8px rgba(0, 0, 0, 0.75);
+    }
+
+    .cf-btn-primary:hover {
+      box-shadow:
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.88),
+        inset 0 12px 20px -6px rgba(255, 255, 255, 0.38),
+        inset 0 -2px 6px rgba(95, 20, 0, 0.55),
+        0 16px 36px -4px rgba(255, 94, 0, 0.68);
+    }
+
+    .cf-btn-ghost {
+      background:
+        radial-gradient(circle 120px at var(--gx, 50%) var(--gy, 0%), rgba(255, 230, 200, calc(var(--g-alpha, 0) * 0.22)), transparent 68%),
+        linear-gradient(180deg, rgba(255, 242, 228, 0.13) 0%, rgba(255, 130, 35, 0.04) 50%, rgba(10, 4, 2, 0.24) 100%),
+        rgba(14, 6, 2, 0.20);
+      border: 1px solid rgba(255, 195, 135, 0.24);
+      color: #fcfaf8;
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 248, 240, 0.48),
+        inset 0 6px 14px -6px rgba(255, 180, 105, 0.16),
+        inset 0 -1px 0 rgba(255, 145, 55, 0.18),
+        0 10px 26px -6px rgba(0, 0, 0, 0.80);
+    }
+
+    .cf-btn-ghost:hover {
+      background:
+        radial-gradient(circle 130px at var(--gx, 50%) var(--gy, 0%), rgba(255, 236, 212, calc(var(--g-alpha, 0) * 0.28)), transparent 68%),
+        linear-gradient(180deg, rgba(255, 245, 235, 0.18) 0%, rgba(255, 128, 32, 0.10) 52%, rgba(12, 5, 2, 0.24) 100%),
+        rgba(18, 8, 3, 0.26);
+      border-color: rgba(255, 200, 140, 0.44);
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 252, 246, 0.62),
+        0 14px 30px -6px rgba(0, 0, 0, 0.86);
+    }
+
+    /* Liquid Lens Pills, Badges & Icon Capsules */
+    .cf-hero-kicker,
+    .cf-nav-badge,
+    .cf-time-badge,
+    .cf-thinking-pill,
+    .cf-rank-badge,
+    .cf-tag-pill {
+      background:
+        linear-gradient(180deg, rgba(255, 242, 228, 0.14) 0%, rgba(255, 112, 18, 0.10) 100%),
+        rgba(16, 7, 3, 0.24);
+      border: 1px solid rgba(255, 178, 105, 0.32);
+      color: #ffc288;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 248, 240, 0.45),
+        0 8px 22px -4px rgba(0, 0, 0, 0.74);
+    }
+
+    .cf-player-pill-dur,
+    .cf-player-pill-meta {
+      background: rgba(14, 6, 2, 0.36);
+      border: 1px solid rgba(255, 195, 135, 0.28);
+      box-shadow: inset 0 1px 0 rgba(255, 248, 240, 0.42), 0 4px 14px rgba(0, 0, 0, 0.72);
+    }
+
+    .cf-step-num,
+    .cf-empty-icon {
+      background:
+        linear-gradient(180deg, rgba(255, 240, 224, 0.18) 0%, rgba(255, 106, 0, 0.14) 100%),
+        rgba(18, 7, 3, 0.26);
+      border: 1px solid rgba(255, 182, 112, 0.36);
+      color: #ff9838;
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 250, 244, 0.52),
+        inset 0 -6px 12px rgba(0, 0, 0, 0.48),
+        0 10px 24px -4px rgba(255, 98, 0, 0.22);
+    }
+
+    /* Dashboard Toolbar, Results Header & History Header Liquid Glass Bars */
+    .cf-dash-toolbar,
+    .cf-results-header,
+    .cf-history-header {
+      padding: 1rem 1.45rem;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle 220px at var(--gx, 50%) var(--gy, 0%), rgba(255, 224, 190, calc(var(--g-alpha, 0) * 0.15)), transparent 68%),
+        linear-gradient(180deg, rgba(255, 240, 224, 0.11) 0%, rgba(255, 128, 32, 0.035) 45%, rgba(10, 4, 2, 0.24) 100%),
+        rgba(14, 6, 2, 0.22);
+      border: 1px solid rgba(255, 185, 120, 0.20);
+      box-shadow: var(--apple-glass-meniscus), var(--apple-glass-elevation);
+    }
+
+    /* Dark-Orange Segmented Liquid Glass Controls */
+    .cf-auth-tabs,
+    .cf-subnav,
+    .cf-source-tabs,
+    .cf-modal-pay-tabs {
+      background: rgba(8, 3, 1, 0.34);
+      border: 1px solid rgba(255, 180, 110, 0.18);
+      box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.78),
+        inset 0 -1px 0 rgba(255, 220, 185, 0.14);
+    }
+
+    .cf-auth-tab.cf-auth-active,
+    .cf-subnav-btn.cf-subnav-active,
+    .cf-source-tab.cf-source-active,
+    .cf-modal-pay-tab.cf-pay-active {
+      background:
+        linear-gradient(180deg, rgba(255, 242, 228, 0.20) 0%, rgba(255, 112, 18, 0.24) 100%),
+        rgba(28, 11, 4, 0.42);
+      color: #ffffff;
+      border: 1px solid rgba(255, 192, 128, 0.44);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 250, 244, 0.54),
+        0 4px 16px rgba(255, 94, 0, 0.28);
+    }
+
+    /* Generator Dropzone, Panels, Inputs & Video Controls */
+    .cf-upload-dropzone {
+      background:
+        radial-gradient(circle 240px at var(--gx, 50%) var(--gy, 50%), rgba(255, 215, 175, calc(var(--g-alpha, 0) * 0.14)), transparent 68%),
+        linear-gradient(180deg, rgba(255, 238, 220, 0.08) 0%, rgba(10, 4, 2, 0.26) 100%),
+        rgba(12, 5, 2, 0.22);
+      border: 1.5px dashed rgba(255, 180, 110, 0.34);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 245, 235, 0.28),
+        inset 0 2px 12px rgba(0, 0, 0, 0.65);
+    }
+
+    .cf-upload-dropzone:hover,
+    .cf-upload-dropzone.cf-drag-over {
+      background:
+        radial-gradient(circle 260px at var(--gx, 50%) var(--gy, 50%), rgba(255, 138, 42, 0.18), transparent 68%),
+        rgba(18, 7, 3, 0.28);
+      border-color: rgba(255, 148, 52, 0.68);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 248, 240, 0.42),
+        0 0 34px rgba(255, 98, 0, 0.22);
+    }
+
+    .cf-export-panel,
+    .cf-processing-card,
+    .cf-pix-box,
+    .cf-video-controls-bar {
+      background:
+        radial-gradient(circle 220px at var(--gx, 50%) var(--gy, 0%), rgba(255, 220, 185, calc(var(--g-alpha, 0) * 0.14)), transparent 68%),
+        linear-gradient(180deg, rgba(255, 238, 220, 0.09) 0%, rgba(10, 4, 2, 0.24) 100%),
+        rgba(12, 5, 2, 0.22);
+      border: 1px solid rgba(255, 180, 112, 0.20);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 246, 236, 0.36),
+        inset 0 -1px 0 rgba(255, 140, 48, 0.14),
+        0 16px 38px -10px rgba(0, 0, 0, 0.80);
+    }
+
+    .cf-file-selected-bar,
+    .cf-input-container {
+      background: rgba(12, 5, 2, 0.28);
+      border: 1px solid rgba(255, 185, 120, 0.24);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 245, 235, 0.30),
+        inset 0 2px 8px rgba(0, 0, 0, 0.68);
+    }
+
+    .cf-input-field,
+    .cf-export-select {
+      background: rgba(10, 4, 2, 0.36);
+      border: 1px solid rgba(255, 180, 110, 0.22);
+      color: #fcfaf8;
+      -webkit-backdrop-filter: blur(8px) saturate(190%);
+      backdrop-filter: blur(8px) saturate(190%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 245, 235, 0.22),
+        inset 0 2px 6px rgba(0, 0, 0, 0.72);
+    }
+
+    .cf-input-field:focus,
+    .cf-export-select:focus {
+      background: rgba(18, 7, 3, 0.46);
+      border-color: rgba(255, 132, 36, 0.72);
+      box-shadow:
+        0 0 0 3px rgba(255, 106, 0, 0.24),
+        inset 0 1px 0 rgba(255, 248, 240, 0.35);
+    }
+
+    .cf-export-select option {
+      background-color: #120704;
+      color: #fcfaf8;
+    }
+
+    .cf-step-item {
+      padding: 0.55rem 0.78rem;
+      border-radius: 14px;
+      background: rgba(255, 165, 85, 0.05);
+      border: 1px solid rgba(255, 180, 112, 0.16);
+      box-shadow: inset 0 1px 0 rgba(255, 245, 235, 0.22);
+    }
+
+    .cf-progress-track,
+    .cf-quota-bar-track {
+      background: rgba(8, 3, 1, 0.56);
+      border: 1px solid rgba(255, 180, 112, 0.18);
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.85);
+    }
+
+    /* Card Player Stage & Comparison Table */
+    .cf-card-player,
+    .cf-video-stage {
+      background: rgba(6, 2, 1, 0.78);
+      border: 1px solid rgba(255, 180, 112, 0.20);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 245, 235, 0.26),
+        inset 0 0 32px rgba(0, 0, 0, 0.9);
+    }
+
+    .cf-compare-table th {
+      color: #ffb875;
+      background: rgba(255, 136, 38, 0.08);
+    }
+
+    .cf-compare-table th:first-child {
+      border-top-left-radius: 12px;
+      border-bottom-left-radius: 12px;
+    }
+
+    .cf-compare-table th:last-child {
+      border-top-right-radius: 12px;
+      border-bottom-right-radius: 12px;
+    }
+
+    .cf-compare-table td {
+      border-bottom-color: rgba(255, 175, 100, 0.10);
+      color: #c2b3aa;
+    }
+
+    .cf-compare-table td strong {
+      color: #ffffff;
+    }
+
+    .cf-compare-table tr:hover td {
+      background: rgba(255, 136, 38, 0.06);
+    }
+
+    /* Modals, Toast & Footer Liquid Glass */
+    .cf-modal-backdrop {
+      background: rgba(5, 2, 1, 0.68);
+      -webkit-backdrop-filter: blur(14px) saturate(185%);
+      backdrop-filter: blur(14px) saturate(185%);
+    }
+
+    .cf-modal-box,
+    .cf-video-modal-box {
+      background:
+        radial-gradient(circle 320px at var(--gx, 50%) var(--gy, 0%), rgba(255, 224, 190, calc(var(--g-alpha, 0) * 0.18)), transparent 68%),
+        linear-gradient(135deg, rgba(255, 242, 228, 0.14) 0%, rgba(255, 128, 32, 0.05) 42%, rgba(12, 5, 2, 0.36) 100%),
+        rgba(16, 7, 3, 0.34);
+      border: 1px solid rgba(255, 192, 128, 0.28);
+      box-shadow:
+        var(--apple-glass-meniscus),
+        0 40px 90px -12px rgba(0, 0, 0, 0.96);
+    }
+
+    .cf-toast {
+      background:
+        linear-gradient(180deg, rgba(255, 242, 228, 0.18) 0%, rgba(255, 118, 22, 0.12) 48%, rgba(14, 6, 2, 0.34) 100%),
+        rgba(16, 7, 3, 0.30);
+      border: 1px solid rgba(255, 198, 138, 0.38);
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 250, 244, 0.62),
+        inset 0 -1px 0 rgba(255, 145, 52, 0.24),
+        0 24px 55px rgba(0, 0, 0, 0.92);
+    }
+
+    .cf-footer {
+      border-top: none;
+      padding: 1.5rem 0 3rem;
+      margin-top: 4.5rem;
+    }
+
+    .cf-footer-glass {
+      padding: 1.85rem 2rem;
+      border-radius: 26px;
+      background:
+        radial-gradient(circle 240px at var(--gx, 50%) var(--gy, 0%), rgba(255, 224, 190, calc(var(--g-alpha, 0) * 0.16)), transparent 68%),
+        linear-gradient(135deg, rgba(255, 242, 228, 0.11) 0%, rgba(255, 132, 36, 0.04) 45%, rgba(12, 5, 2, 0.24) 100%),
+        rgba(14, 6, 2, 0.22);
+      border: 1px solid rgba(255, 185, 120, 0.20);
+      box-shadow: var(--apple-glass-meniscus), var(--apple-glass-elevation);
+    }
+
+    /* ==========================================================================
+       APPLE iOS 26 / macOS TAHOE / visionOS SPRING MOTION & GPU OPTIMIZATION
+       ========================================================================== */
+    :root {
+      /* Authentic Apple Damped Harmonic Spring Curves */
+      --apple-spring-snappy: linear(
+        0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.723 15.1%, 0.938 20.7%,
+        1.017 24.3%, 1.041 27.3%, 1.037 31.1%, 1.006 40.3%, 0.998 48.2%, 1
+      );
+      --apple-spring-fluid: linear(
+        0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%,
+        0.849 31.5%, 0.937 38.1%, 0.968 41.8%, 0.991 45.7%, 1.006 50.1%,
+        1.015 55%, 1.017 63.9%, 1.001
+      );
+      --apple-ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* 1. Zero-Blur GPU Pre-Baked Radial Orbs (0.00ms Blur Shader Cost!) */
+    html,
+    body {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .cf-orbs-container {
+      contain: strict;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+
+    .cf-orb {
+      filter: none !important;
+      opacity: 0.42;
+      backface-visibility: hidden;
+      contain: strict;
+    }
+
+    .cf-orb-1 {
+      width: 760px;
+      height: 760px;
+      background: radial-gradient(
+        circle,
+        rgba(255, 106, 0, 0.52) 0%,
+        rgba(255, 106, 0, 0.28) 28%,
+        rgba(255, 106, 0, 0.10) 52%,
+        rgba(255, 106, 0, 0.02) 70%,
+        transparent 82%
+      );
+    }
+
+    .cf-orb-2 {
+      width: 720px;
+      height: 720px;
+      background: radial-gradient(
+        circle,
+        rgba(255, 154, 60, 0.46) 0%,
+        rgba(255, 140, 42, 0.24) 30%,
+        rgba(255, 120, 28, 0.08) 54%,
+        transparent 80%
+      );
+    }
+
+    .cf-orb-3 {
+      width: 660px;
+      height: 660px;
+      background: radial-gradient(
+        circle,
+        rgba(230, 81, 0, 0.48) 0%,
+        rgba(230, 81, 0, 0.24) 30%,
+        rgba(230, 81, 0, 0.08) 55%,
+        transparent 80%
+      );
+    }
+
+    html.cf-page-hidden *,
+    html.cf-page-hidden *::before,
+    html.cf-page-hidden *::after {
+      animation-play-state: paused !important;
+    }
+
+    /* 2. Dynamic Island Floating Navbar Scroll Compression */
+    .cf-header-inner {
+      transition:
+        padding 0.48s var(--apple-spring-fluid),
+        transform 0.48s var(--apple-spring-fluid),
+        background-color 0.35s ease,
+        border-color 0.35s ease,
+        box-shadow 0.35s ease;
+    }
+
+    .cf-header-inner.cf-header-condensed {
+      padding: 0.62rem 1.38rem;
+      transform: translate3d(0, -2px, 0) scale(0.986);
+      border-color: rgba(255, 200, 140, 0.32);
+      box-shadow:
+        inset 0 1.5px 0 0 rgba(255, 252, 246, 0.72),
+        inset 0 10px 22px -8px rgba(255, 175, 95, 0.28),
+        inset 0 -1.5px 0 0 rgba(255, 140, 48, 0.32),
+        0 18px 44px -8px rgba(0, 0, 0, 0.92);
+    }
+
+    .cf-logo-mark {
+      transition: transform 0.45s var(--apple-spring-snappy), box-shadow 0.3s ease;
+    }
+
+    .cf-logo:hover .cf-logo-mark {
+      transform: rotate(-6deg) scale(1.08);
+      box-shadow:
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.8),
+        0 6px 24px rgba(255, 106, 0, 0.72);
+    }
+
+    .cf-logo-mark svg {
+      transition: transform 0.4s var(--apple-spring-snappy);
+    }
+
+    .cf-logo:hover .cf-logo-mark svg {
+      transform: translateX(1px) scale(1.08);
+    }
+
+    /* 3. Sliding Morphing Liquid Glass Segmented Pill (iOS 26 UISegmentedControl) */
+    .cf-auth-tabs,
+    .cf-subnav,
+    .cf-source-tabs,
+    .cf-modal-pay-tabs {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      padding: 4px;
+      background: rgba(8, 3, 1, 0.52);
+      border: 1px solid rgba(255, 175, 105, 0.16);
+      box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.78),
+        0 1px 0 rgba(255, 235, 210, 0.08);
+    }
+
+    .cf-apple-seg-thumb {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      pointer-events: none;
+      border-radius: var(--cf-radius-pill);
+      background:
+        linear-gradient(180deg, rgba(255, 172, 88, 0.34) 0%, rgba(255, 102, 12, 0.30) 55%, rgba(190, 58, 0, 0.36) 100%),
+        rgba(34, 13, 5, 0.62);
+      border: 1px solid rgba(255, 198, 132, 0.54);
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 252, 246, 0.68),
+        inset 0 -1px 0 rgba(255, 132, 36, 0.32),
+        0 6px 18px -2px rgba(255, 94, 0, 0.36),
+        0 2px 6px rgba(0, 0, 0, 0.55);
+      transform-origin: 0 50%;
+      will-change: transform;
+    }
+
+    .cf-auth-tab,
+    .cf-subnav-btn,
+    .cf-source-tab,
+    .cf-modal-pay-tab {
+      position: relative;
+      z-index: 2;
+      border: 1px solid transparent !important;
+      user-select: none;
+      white-space: nowrap;
+      transition: color 0.22s ease;
+    }
+
+    .cf-auth-tab:hover:not(.cf-auth-active),
+    .cf-subnav-btn:hover:not(.cf-subnav-active),
+    .cf-source-tab:hover:not(.cf-source-active),
+    .cf-modal-pay-tab:hover:not(.cf-pay-active) {
+      color: #f6ede6;
+    }
+
+    .cf-auth-tabs.cf-seg-ready .cf-auth-tab.cf-auth-active,
+    .cf-subnav.cf-seg-ready .cf-subnav-btn.cf-subnav-active,
+    .cf-source-tabs.cf-seg-ready .cf-source-tab.cf-source-active,
+    .cf-modal-pay-tabs.cf-seg-ready .cf-modal-pay-tab.cf-pay-active {
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+      color: #ffffff;
+    }
+
+    /* 4. Tactile Physical Squish, Liquid Click Ripple & Magnetic Button Transitions */
+    .cf-btn,
+    .cf-play-btn,
+    .cf-ctrl-icon-btn,
+    .cf-tag-pill,
+    .cf-hero-glass-chip {
+      position: relative;
+      overflow: hidden;
+      transition:
+        transform 0.38s var(--apple-spring-snappy),
+        translate 0.22s var(--apple-ease-out-quint),
+        scale 0.22s var(--apple-spring-snappy),
+        box-shadow 0.28s ease,
+        background-color 0.25s ease,
+        border-color 0.25s ease;
+    }
+
+    .cf-apple-pressing {
+      scale: 0.952 !important;
+      transition: scale 0.085s cubic-bezier(0.2, 0, 0, 1) !important;
+    }
+
+    .cf-apple-ripple {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      background: radial-gradient(
+        circle,
+        rgba(255, 248, 240, 0.55) 0%,
+        rgba(255, 165, 80, 0.28) 45%,
+        transparent 72%
+      );
+      transform: scale(0.15);
+      will-change: transform, opacity;
+      z-index: 3;
+    }
+
+    /* Top Viewport Liquid Scroll Progress Filament (100% GPU scaleX) */
+    #cf-scroll-progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2.5px;
+      z-index: 9998;
+      pointer-events: none;
+      transform-origin: 0% 50%;
+      transform: scaleX(0);
+      opacity: 0;
+      background: linear-gradient(90deg, #ff5500 0%, #ff9a3c 55%, #ffe2b0 100%);
+      box-shadow: 0 0 12px rgba(255, 115, 24, 0.78);
+      transition: opacity 0.3s ease;
+      will-change: transform, opacity;
+    }
+
+    /* 5. Staggered Scroll-Reveal Cascade & Exact 3D Card Micro-Physics */
+    .cf-reveal {
+      opacity: 0;
+      transform: translate3d(0, 30px, 0) scale(0.965);
+      transition:
+        opacity 0.62s var(--apple-ease-out-quint),
+        transform 0.78s var(--apple-spring-fluid);
+      transition-delay: calc(var(--cf-stagger-idx, 0) * 75ms);
+      will-change: transform, opacity;
+    }
+
+    .cf-reveal.cf-revealed {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    .cf-steps-grid,
+    .cf-social-grid,
+    .cf-pricing-grid,
+    .cf-cards-grid {
+      contain: layout style;
+    }
+
+    .cf-card {
+      opacity: 1;
+      transform: none;
+    }
+
+    .cf-step-card,
+    .cf-social-card,
+    .cf-pricing-card,
+    .cf-card,
+    .cf-history-item {
+      transform-style: preserve-3d;
+      transition:
+        border-color 0.28s ease,
+        box-shadow 0.32s ease,
+        background-color 0.28s ease;
+      will-change: transform;
+    }
+
+    /* Step Card Z-Depth Badge Lift */
+    .cf-step-num {
+      transition: transform 0.44s var(--apple-spring-snappy), box-shadow 0.3s ease;
+    }
+
+    .cf-step-card:hover .cf-step-num {
+      transform: translate3d(0, -4px, 14px) scale(1.08);
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 252, 246, 0.72),
+        0 14px 28px -4px rgba(255, 106, 0, 0.42);
+    }
+
+    /* Social Card Avatar Z-Lift & Golden Star Shimmer */
+    .cf-avatar {
+      transition: transform 0.44s var(--apple-spring-snappy), box-shadow 0.3s ease;
+    }
+
+    .cf-social-card:hover .cf-avatar {
+      transform: translate3d(0, -2px, 14px) scale(1.09);
+      box-shadow: 0 8px 20px rgba(255, 106, 0, 0.42);
+    }
+
+    .cf-stars {
+      transition: transform 0.4s var(--apple-spring-snappy), filter 0.35s ease, letter-spacing 0.35s ease;
+    }
+
+    .cf-social-card:hover .cf-stars {
+      transform: translate3d(2px, -1px, 8px);
+      letter-spacing: 0.08em;
+      filter: drop-shadow(0 0 8px rgba(255, 175, 75, 0.55));
+    }
+
+    /* Pricing Card Price Pop & Checkmark Spring */
+    .cf-plan-price {
+      transition: transform 0.44s var(--apple-spring-snappy);
+      transform-origin: left center;
+    }
+
+    .cf-pricing-card:hover .cf-plan-price {
+      transform: translate3d(0, -2px, 10px) scale(1.035);
+    }
+
+    .cf-check {
+      display: inline-block;
+      transition: transform 0.35s var(--apple-spring-snappy), color 0.25s ease;
+    }
+
+    /* 6. Featured Pro Card Breathing Halo, Live Radar Dot & Floating Popular Badge */
+    @keyframes cf-apple-levitate {
+      0%, 100% { transform: translateX(-50%) translate3d(0, 0, 0); }
+      50% { transform: translateX(-50%) translate3d(0, -3.5px, 0); }
+    }
+
+    .cf-popular-tag {
+      animation: cf-apple-levitate 4.2s ease-in-out infinite;
+    }
+
+    @keyframes cf-live-radar {
+      0% { box-shadow: 0 0 0 0 rgba(255, 122, 24, 0.65); }
+      70% { box-shadow: 0 0 0 8px rgba(255, 122, 24, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 122, 24, 0); }
+    }
+
+    .cf-live-dot {
+      animation: cf-live-radar 2.1s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+
+    /* 7. AirDrop-Style Upload Dropzone, Fluid Input Aura & Comparison Table Glide */
+    .cf-upload-dropzone {
+      transition:
+        transform 0.45s var(--apple-spring-fluid),
+        border-color 0.25s ease,
+        box-shadow 0.3s ease,
+        background-color 0.25s ease;
+    }
+
+    .cf-upload-dropzone:hover .cf-step-num,
+    .cf-upload-dropzone.cf-drag-over .cf-step-num {
+      transform: translate3d(0, -5px, 0) scale(1.1);
+      box-shadow:
+        inset 0 1.5px 0 rgba(255, 252, 246, 0.7),
+        0 14px 30px -4px rgba(255, 106, 0, 0.45);
+    }
+
+    .cf-upload-dropzone.cf-drag-over {
+      transform: scale(1.016);
+    }
+
+    .cf-input-field,
+    .cf-export-select,
+    .cf-input-container {
+      transition:
+        border-color 0.26s var(--apple-ease-out-quint),
+        box-shadow 0.32s var(--apple-ease-out-quint),
+        background-color 0.26s ease,
+        transform 0.32s var(--apple-spring-snappy);
+    }
+
+    .cf-input-field:focus,
+    .cf-export-select:focus {
+      transform: translate3d(0, -1px, 0);
+    }
+
+    .cf-field label {
+      transition: color 0.24s ease, transform 0.28s var(--apple-spring-snappy);
+      display: inline-block;
+    }
+
+    .cf-field:focus-within label {
+      color: #ffb875;
+      transform: translate3d(2px, 0, 0);
+    }
+
+    .cf-compare-table tbody tr td {
+      transition: background-color 0.24s ease, color 0.24s ease, padding-left 0.28s var(--apple-ease-out-quint);
+    }
+
+    .cf-compare-table tbody tr:hover td:first-child {
+      padding-left: 1.15rem;
+      color: #ffffff;
+    }
+
+    /* 8. FFmpeg Live Telemetry Active Stage Aura & Progress Meniscus */
+    @keyframes cf-apple-stage-glow {
+      0%, 100% {
+        border-color: rgba(255, 165, 82, 0.34);
+        box-shadow: inset 0 1px 0 rgba(255, 245, 235, 0.28), 0 0 0 0 rgba(255, 106, 0, 0);
+      }
+      50% {
+        border-color: rgba(255, 185, 105, 0.68);
+        box-shadow: inset 0 1px 0 rgba(255, 250, 244, 0.42), 0 0 22px -4px rgba(255, 106, 0, 0.28);
+      }
+    }
+
+    .cf-step-item {
+      transition: transform 0.38s var(--apple-spring-snappy), background-color 0.25s ease, border-color 0.25s ease;
+    }
+
+    .cf-step-item.cf-step-active {
+      background: rgba(255, 126, 28, 0.12);
+      animation: cf-apple-stage-glow 2.2s ease-in-out infinite;
+      transform: translate3d(4px, 0, 0);
+    }
+
+    .cf-step-item.cf-step-done {
+      border-color: rgba(255, 185, 108, 0.34);
+      background: rgba(255, 154, 60, 0.08);
+    }
+
+    .cf-progress-fill,
+    .cf-quota-bar-fill {
+      transition: width 0.48s var(--apple-ease-out-quint);
+    }
+
+    /* 9. Viral Cut Card (`.cf-card`) Thumbnail Optical Zoom, Karaoke Captions & Apple TV+ Play */
+    .cf-card-player img {
+      transition:
+        transform 0.68s var(--apple-ease-out-quint),
+        opacity 0.42s ease,
+        filter 0.42s ease;
+    }
+
+    .cf-card:hover .cf-card-player img {
+      transform: scale(1.058);
+      opacity: 0.74 !important;
+    }
+
+    .cf-card:hover .cf-play-btn {
+      transform: scale(1.11);
+      box-shadow:
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.88),
+        0 0 0 9px rgba(255, 106, 0, 0.20),
+        0 14px 32px rgba(255, 94, 0, 0.68);
+    }
+
+    @keyframes cf-cap-karaoke-pop {
+      0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+      45% { transform: translate3d(0, -3px, 0) scale(1.08); }
+    }
+
+    .cf-cap-word {
+      display: inline-block;
+      transition: transform 0.3s var(--apple-spring-snappy);
+    }
+
+    .cf-card:hover .cf-cap-word {
+      animation: cf-cap-karaoke-pop 0.52s var(--apple-ease-out-quint) both;
+      animation-delay: calc(var(--cap-idx, 0) * 48ms);
+    }
+
+    .cf-score-circle {
+      transition: stroke-dashoffset 1.15s var(--apple-ease-out-quint);
+    }
+
+    /* 10. iOS Sheet / QuickLook Modal Backdrop & Cinema Video Playing Aura */
+    @keyframes cf-backdrop-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .cf-modal-backdrop.cf-modal-open {
+      animation: cf-backdrop-fade-in 0.24s var(--apple-ease-out-quint) forwards;
+    }
+
+    .cf-modal-backdrop.cf-modal-closing {
+      opacity: 0;
+      transition: opacity 0.19s ease !important;
+      pointer-events: none;
+    }
+
+    .cf-video-stage {
+      transition: box-shadow 0.5s ease, border-color 0.4s ease;
+    }
+
+    .cf-video-stage.cf-stage-playing {
+      border-color: rgba(255, 154, 62, 0.45);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 245, 235, 0.32),
+        0 0 42px -8px rgba(255, 98, 0, 0.32);
+    }
+
+    .cf-quota-bar-fill {
+      transform-origin: 0% 50%;
+    }
+
+    /* ==========================================================================
+       11. APPLE iOS 26 LIQUID GLASS OPTICAL DISTORTION BOOT / LOADING SCREEN
+       ========================================================================== */
+    #cf-apple-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle 420px at 50% 44%, rgba(255, 106, 0, 0.24), transparent 72%),
+        #0a0605;
+      contain: strict;
+      will-change: opacity, transform;
+    }
+
+    .cf-loader-stage {
+      position: relative;
+      width: 124px;
+      height: 124px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.35rem;
+    }
+
+    /* Sweeping Orange Plasma Ring Behind the Glass Squircle (Visibly Refracts!) */
+    @keyframes cf-loader-orbit {
+      0% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.06); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+
+    .cf-loader-plasma-ring {
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 0deg,
+        transparent 0deg,
+        #ff5500 85deg,
+        #ffd494 155deg,
+        #ff7b00 230deg,
+        transparent 325deg
+      );
+      opacity: 0.9;
+      animation: cf-loader-orbit 2.2s linear infinite;
+      will-change: transform;
+    }
+
+    .cf-loader-plasma-ring::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 50%;
+      background: #0a0605;
+    }
+
+    /* Refractive 3D Apple Squircle Lens Sitting Over the Plasma Ring */
+    #cf-loader-glass-orb {
+      position: relative;
+      z-index: 2;
+      width: 92px;
+      height: 92px;
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(145deg, rgba(255, 246, 236, 0.22) 0%, rgba(255, 120, 24, 0.08) 48%, rgba(12, 5, 2, 0.30) 100%),
+        rgba(18, 8, 4, 0.24);
+      border: 1px solid rgba(255, 205, 150, 0.38);
+      -webkit-backdrop-filter: blur(10px) saturate(200%);
+      backdrop-filter: blur(10px) saturate(200%);
+      box-shadow:
+        inset 0 2px 1px rgba(255, 252, 248, 0.78),
+        inset 0 -2px 6px rgba(255, 115, 20, 0.28),
+        0 22px 48px -8px rgba(0, 0, 0, 0.85),
+        0 0 32px rgba(255, 102, 0, 0.28);
+      will-change: transform, opacity;
+    }
+
+    .cf-loader-emblem {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ff9638 0%, #ff5500 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.72),
+        0 6px 20px rgba(255, 94, 0, 0.6);
+    }
+
+    .cf-loader-emblem svg {
+      width: 24px;
+      height: 24px;
+      fill: #ffffff;
+    }
+
+    .cf-loader-brand {
+      font-size: 1.32rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      margin-bottom: 0.25rem;
+    }
+
+    .cf-loader-sub {
+      font-size: 0.76rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #c2b0a6;
+      margin-bottom: 1.25rem;
+    }
+
+    .cf-loader-bar-wrap {
+      width: 176px;
+      height: 4px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.10);
+      overflow: hidden;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.75);
+    }
+
+    #cf-loader-bar-fill {
+      width: 100%;
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #ff5800 0%, #ff9f45 60%, #ffe2b3 100%);
+      transform-origin: 0% 50%;
+      transform: scaleX(0.08);
+      box-shadow: 0 0 12px rgba(255, 118, 24, 0.85);
+      will-change: transform;
+    }
+
+    #cf-loader-pct {
+      margin-top: 0.55rem;
+      font-size: 0.73rem;
+      font-weight: 700;
+      color: #ffb878;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ==========================================================================
+       12. NATIVE iOS 26 MOBILE EXPERIENCE (BOTTOM LIQUID DOCK + BOTTOM SHEETS)
+       ========================================================================== */
+    .cf-sheet-grabber {
+      display: none;
+      width: 42px;
+      height: 5px;
+      border-radius: 99px;
+      background: rgba(255, 232, 210, 0.34);
+      margin: 0 auto 1.1rem;
+      flex-shrink: 0;
+    }
+
+    #cf-mobile-dock {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding-bottom: calc(5.8rem + env(safe-area-inset-bottom, 0px));
+      }
+
+      /* Compact Top Dynamic Island Capsule on Mobile */
+      .cf-header {
+        top: max(0.55rem, env(safe-area-inset-top, 0px));
+        padding: 0 0.85rem;
+      }
+
+      .cf-header-inner {
+        padding: 0.58rem 0.95rem !important;
+        gap: 0.65rem;
+      }
+
+      .cf-logo {
+        font-size: 1.12rem;
+        gap: 0.5rem;
+      }
+
+      .cf-logo-mark {
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+      }
+
+      /* Hide secondary desktop text links from top header (they live in the bottom dock!) */
+      #cf-nav-guest .cf-nav-link,
+      #cf-nav-user .cf-nav-link {
+        display: none;
+      }
+
+      .cf-nav-links {
+        gap: 0.45rem;
+      }
+
+      .cf-nav-links .cf-btn-sm {
+        padding: 0.42rem 0.82rem;
+        font-size: 0.8rem;
+      }
+
+      /* Floating iOS 26 Liquid Glass Bottom Tab Dock */
+      #cf-mobile-dock {
+        position: fixed;
+        left: 0.85rem;
+        right: 0.85rem;
+        bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));
+        z-index: 150;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.42rem 0.5rem;
+        border-radius: 999px;
+        background:
+          linear-gradient(180deg, rgba(255, 240, 224, 0.16) 0%, rgba(255, 118, 22, 0.06) 48%, rgba(10, 4, 2, 0.42) 100%),
+          rgba(14, 6, 3, 0.58);
+        border: 1px solid rgba(255, 195, 132, 0.28);
+        -webkit-backdrop-filter: blur(18px) saturate(200%);
+        backdrop-filter: blur(18px) saturate(200%);
+        box-shadow:
+          inset 0 1.5px 0 rgba(255, 250, 244, 0.62),
+          inset 0 -1px 0 rgba(255, 138, 42, 0.26),
+          0 20px 48px rgba(0, 0, 0, 0.90);
+        will-change: transform, scale;
+      }
+
+      .cf-mobile-dock-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        width: 100%;
+        gap: 0.25rem;
+      }
+
+      .cf-dock-btn {
+        flex: 1;
+        min-height: 46px;
+        border: none;
+        background: transparent;
+        color: #b8a89f;
+        border-radius: 999px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        cursor: pointer;
+        padding: 0.28rem 0.35rem;
+        transition: color 0.2s ease, background-color 0.22s ease;
+      }
+
+      .cf-dock-btn svg {
+        width: 19px;
+        height: 19px;
+        stroke-width: 2.1;
+        transition: transform 0.3s var(--apple-spring-snappy);
+      }
+
+      .cf-dock-btn.cf-dock-active {
+        color: #ffffff;
+        background:
+          linear-gradient(180deg, rgba(255, 168, 82, 0.32) 0%, rgba(255, 98, 8, 0.28) 100%),
+          rgba(32, 12, 4, 0.55);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 250, 244, 0.55),
+          0 4px 14px rgba(255, 94, 0, 0.30);
+      }
+
+      .cf-dock-btn.cf-dock-active svg {
+        color: #ff9f45;
+        transform: translateY(-1px) scale(1.06);
+      }
+
+      .cf-dock-btn.cf-dock-cta {
+        color: #ffffff;
+        background: linear-gradient(180deg, rgba(255, 148, 52, 0.85) 0%, rgba(235, 72, 0, 0.88) 100%);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.72),
+          0 6px 18px rgba(255, 94, 0, 0.45);
+      }
+
+      /* Mobile Container, Hero & Cards Spacing */
+      .cf-container {
+        padding: 0 1rem;
+      }
+
+      .cf-hero {
+        padding: 2.3rem 0 2rem;
+      }
+
+      .cf-hero-title {
+        font-size: clamp(2rem, 8.4vw, 2.65rem);
+        line-height: 1.08;
+      }
+
+      .cf-hero-sub {
+        font-size: 0.96rem;
+        padding: 0 0.25rem;
+      }
+
+      .cf-hero-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 0.7rem;
+      }
+
+      .cf-hero-actions .cf-btn {
+        width: 100%;
+        min-height: 48px;
+        justify-content: center;
+      }
+
+      .cf-hero-glass-strip {
+        border-radius: 22px;
+        padding: 0.55rem;
+        gap: 0.42rem;
+      }
+
+      .cf-hero-glass-chip {
+        font-size: 0.73rem;
+        padding: 0.36rem 0.72rem;
+      }
+
+      /* Mobile Segmented Controls & Dashboard Toolbar */
+      .cf-dash-toolbar {
+        padding: 0.85rem;
+        gap: 0.75rem;
+        margin-bottom: 1.4rem;
+      }
+
+      .cf-subnav {
+        width: 100%;
+        justify-content: space-between;
+        gap: 0.2rem;
+      }
+
+      .cf-subnav-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 0.55rem 0.5rem;
+        font-size: 0.79rem;
+        gap: 0.3rem;
+      }
+
+      .cf-source-tabs {
+        display: flex;
+        width: 100%;
+        flex-wrap: nowrap;
+        gap: 0.2rem;
+      }
+
+      .cf-source-tab {
+        flex: 1;
+        text-align: center;
+        justify-content: center;
+        padding: 0.55rem 0.45rem;
+        font-size: 0.78rem;
+      }
+
+      /* Prevent iOS Safari Auto-Zoom on Input Focus (`>= 16px`) */
+      .cf-input-field,
+      .cf-export-select,
+      .cf-url-input {
+        font-size: 16px !important;
+        min-height: 46px;
+      }
+
+      /* Compact 2-Column Export Settings Grid on Mobile */
+      .cf-export-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.65rem !important;
+      }
+
+      .cf-btn-generate {
+        width: 100%;
+        min-height: 50px;
+        justify-content: center;
+      }
+
+      .cf-cards-grid {
+        grid-template-columns: 1fr;
+        gap: 1.15rem;
+      }
+
+      /* Native iOS Bottom Sheets on Mobile (`<= 768px`) */
+      .cf-sheet-grabber {
+        display: block;
+      }
+
+      .cf-modal-backdrop {
+        align-items: flex-end;
+        padding: 0;
+      }
+
+      .cf-modal-box,
+      .cf-video-modal-box {
+        max-width: 100%;
+        width: 100%;
+        border-radius: 30px 30px 0 0 !important;
+        padding: 0.85rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+        max-height: 91dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0;
+      }
+
+      .cf-video-controls-bar {
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        padding: 0.75rem;
+      }
+
+      .cf-vol-slider {
+        display: none;
+      }
+
+      /* Position Toast cleanly above Mobile Bottom Dock */
+      .cf-toast {
+        bottom: calc(5.2rem + env(safe-area-inset-bottom, 0px));
+        max-width: calc(100vw - 2rem);
+        white-space: normal;
+        text-align: center;
+      }
+    }
+
+    /* ========================================================================
+       NOVO DESIGNER v2 — 100% PHOTO-FAITHFUL RECREATION
+       Activates when <html data-cf-design="v2"> is set (via Admin Panel)
+       ======================================================================== */
+    html[data-cf-design="v2"] body {
+      background: #020202;
+      overflow-y: auto; /* permite rolar para ver conteúdo */
+    }
+
+    html[data-cf-design="v2"] .cf-header,
+    html[data-cf-design="v2"] .cf-hero,
+    html[data-cf-design="v2"] .cf-steps-grid,
+    html[data-cf-design="v2"] .cf-como-funciona,
+    html[data-cf-design="v2"] .cf-planos,
+    html[data-cf-design="v2"] #cf-view-landing > *:not(.cf-v2-stage):not(.cf-v2-caustic-canvas),
+    html[data-cf-design="v2"] .cf-hero-glass-strip,
+    html[data-cf-design="v2"] .cf-hero-actions {
+      display: none !important;
+    }
+
+    /* Procedural volumetric caustic ring canvas */
+    html[data-cf-design="v2"] .cf-v2-caustic-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Default: v2 stage hidden */
+    .cf-v2-stage { display: none; }
+
+    /* Deep obsidian pocket backdrop */
+    html[data-cf-design="v2"] .cf-v2-obsidian-pocket {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 15%, #030201 0%, #020203 55%, transparent 85%),
+                  radial-gradient(ellipse at 85% 60%, #2b1a36 0%, #583468 35%, #bc7275 60%, transparent 80%);
+      z-index: 0;
+    }
+
+    /* V2 Main Stage */
+    html[data-cf-design="v2"] .cf-v2-stage {
+      position: relative;
+      z-index: 2;
+      max-width: 1536px;
+      margin: 0 auto;
+      padding: 0 42px 0 42px; /* sem padding-top extra */
+      min-height: auto;
+      display: flex !important;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    /* Top stadium navbar */
+    html[data-cf-design="v2"] .cf-v2-navbar {
+      width: calc(100% - 84px);
+      max-width: 1394px;
+      height: 103px;
+      margin: -60px 42px 0; /* colado no topo, sem vão */
+      background: linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.02) 100%);
+      border-radius: 52px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-top: 1.5px solid rgba(255,255,255,0.18);
+      border-bottom: 1.5px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: relative;
+      box-shadow: inset 0 1px 1px rgba(255,205,150,0.15), 0 8px 32px rgba(0,0,0,0.55);
+    }
+
+    html[data-cf-design="v2"] .cf-v2-navbar::before,
+    html[data-cf-design="v2"] .cf-v2-navbar::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff 20%, rgba(255,255,255,0.4) 60%, transparent);
+      filter: blur(1px);
+    }
+    html[data-cf-design="v2"] .cf-v2-navbar::before { top: -4px; left: 24px; }
+    html[data-cf-design="v2"] .cf-v2-navbar::after  { top: -4px; right: 24px; }
+
+    html[data-cf-design="v2"] .cf-v2-logo-group {
+      display: flex; align-items: center; gap: 14px;
+      font-weight: 700; font-size: 1.35rem; letter-spacing: -0.03em;
+    }
+    html[data-cf-design="v2"] .cf-v2-logo-squircle {
+      width: 54px; height: 54px; border-radius: 16px;
+      background: linear-gradient(135deg, #2a0f05 0%, #4a1b08 60%, #8a3a15 100%);
+      border: 1.5px solid rgba(255,205,150,0.35);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(177,99,20,0.35), inset 0 1px 2px rgba(255,255,255,0.1);
+    }
+    html[data-cf-design="v2"] .cf-v2-logo-icon {
+      width: 28px; height: 28px; fill: none; stroke: url(#v2-flame-grad); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+    }
+    html[data-cf-design="v2"] .cf-v2-nav-center {
+      display: flex; gap: 8px; align-items: center;
+    }
+    html[data-cf-design="v2"] .cf-v2-nav-pill {
+      height: 38px; padding: 0 20px; border-radius: 100px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.85); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.01em;
+      display: flex; align-items: center; justify-content: center;
+      transition: 0.25s ease; cursor: pointer;
+    }
+    html[data-cf-design="v2"] .cf-v2-nav-pill.active {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.28);
+      color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    html[data-cf-design="v2"] .cf-v2-plan-btn {
+      height: 38px; padding: 0 22px; border-radius: 100px;
+      border: 1.5px solid rgba(255,220,140,0.35);
+      background: linear-gradient(180deg, rgba(255,220,140,0.06) 0%, rgba(255,180,80,0.03) 100%);
+      color: #fff; font-weight: 700; font-size: 0.88rem; letter-spacing: 0.02em;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      cursor: pointer; transition: 0.2s ease;
+    }
+    html[data-cf-design="v2"] .cf-v2-plan-btn:hover { border-color: rgba(255,220,140,0.6); background: linear-gradient(180deg, rgba(255,220,140,0.12) 0%, rgba(255,180,80,0.08) 100%); }
+
+    /* Trial Badge */
+    html[data-cf-design="v2"] .cf-v2-trial-badge {
+      margin-top: 38px; height: 47px; padding: 0 28px; border-radius: 100px;
+      background: linear-gradient(135deg, rgba(177,99,20,0.25) 0%, rgba(140,78,15,0.18) 100%);
+      border: 1.5px solid rgba(255,200,120,0.35);
+      color: #fdeba2; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.03em;
+      display: inline-flex; align-items: center; gap: 8px;
+      box-shadow: 0 4px 16px rgba(177,99,20,0.25), inset 0 1px 1px rgba(255,205,150,0.2);
+      position: relative;
+    }
+    html[data-cf-design="v2"] .cf-v2-trial-badge::before {
+      content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px;
+      border-radius: 50%; background: radial-gradient(circle, #fff 30%, rgba(255,255,255,0.3) 70%, transparent);
+      filter: blur(0.5px);
+    }
+
+    /* Hero Title */
+    html[data-cf-design="v2"] .cf-v2-hero-title {
+      margin-top: 28px; font-size: clamp(3rem, 7.5vw, 6.5rem); font-weight: 800;
+      line-height: 1.05; letter-spacing: -0.045em; text-align: center;
+      color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.35);
+    }
+    html[data-cf-design="v2"] .cf-v2-hero-title span.gradient-text {
+      background: linear-gradient(92deg, #fdeba2 0%, #ffd064 40%, #df6a1a 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    /* Subtitle 3 lines */
+    html[data-cf-design="v2"] .cf-v2-subtitle {
+      margin-top: 28px; max-width: 720px; text-align: center; font-size: 1.05rem; line-height: 1.55; color: rgba(255,255,255,0.82);
+    }
+
+    /* CTAs */
+    html[data-cf-design="v2"] .cf-v2-cta-row {
+      margin-top: 48px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+    }
+    html[data-cf-design="v2"] .cf-v2-btn-primary {
+      height: 67px; padding: 0 36px; border-radius: 100px; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.01em;
+      background: linear-gradient(135deg, rgba(178,100,10,0.55) 0%, rgba(140,65,5,0.45) 50%, rgba(100,50,10,0.35) 100%);
+      border: 1.5px solid rgba(255,200,100,0.45);
+      color: #fff; box-shadow: 0 6px 24px rgba(177,99,20,0.35), inset 0 1px 1px rgba(255,255,255,0.12);
+      position: relative; overflow: hidden; cursor: pointer; transition: 0.25s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    html[data-cf-design="v2"] .cf-v2-btn-primary::before,
+    html[data-cf-design="v2"] .cf-v2-btn-primary::after {
+      content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%;
+      background: radial-gradient(circle, #fff 20%, rgba(255,255,255,0.6) 50%, transparent 80%);
+      filter: blur(0.5px); opacity: 0.9;
+    }
+    html[data-cf-design="v2"] .cf-v2-btn-primary::before { top: 10px; left: 16px; }
+    html[data-cf-design="v2"] .cf-v2-btn-primary::after  { bottom: 10px; right: 16px; }
+
+    html[data-cf-design="v2"] .cf-v2-btn-dark {
+      height: 67px; padding: 0 36px; border-radius: 100px; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.01em;
+      background: linear-gradient(135deg, rgba(10,8,6,0.7) 0%, rgba(20,15,10,0.45) 100%);
+      border: 1.5px solid rgba(255,255,255,0.18);
+      color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,0.45), inset 0 1px 2px rgba(255,255,255,0.06);
+      position: relative; overflow: hidden; cursor: pointer; transition: 0.25s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    html[data-cf-design="v2"] .cf-v2-btn-dark::before,
+    html[data-cf-design="v2"] .cf-v2-btn-dark::after {
+      content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%;
+      background: radial-gradient(circle, #fff 20%, rgba(255,255,255,0.5) 50%, transparent 80%);
+      filter: blur(0.5px); opacity: 0.85;
+    }
+    html[data-cf-design="v2"] .cf-v2-btn-dark::before { top: 10px; right: 16px; }
+    html[data-cf-design="v2"] .cf-v2-btn-dark::after  { bottom: 10px; left: 16px; }
+
+    /* Feature Pills */
+    html[data-cf-design="v2"] .cf-v2-features-row {
+      margin-top: 48px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+    }
+    html[data-cf-design="v2"] .cf-v2-feature-pill {
+      height: 51px; padding: 0 24px; border-radius: 100px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.015) 100%);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.92); font-size: 0.88rem; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 8px;
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.06), 0 2px 8px rgba(0,0,0,0.3);
+      transition: 0.2s ease; cursor: default;
+    }
+    html[data-cf-design="v2"] .cf-v2-feature-pill:hover {
+      border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.06);
+    }
+
+    /* Bottom Crystal Stage */
+    html[data-cf-design="v2"] .cf-v2-stage-bottom {
+      margin-top: auto; padding-top: 64px; padding-bottom: 48px;
+      width: 100%; max-width: calc(100% - 84px);
+    }
+    html[data-cf-design="v2"] .cf-v2-crystal-stage {
+      width: 100%; border-radius: 36px; padding: 36px 32px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 60%, rgba(255,255,255,0.01) 100%);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-top: 2px solid rgba(255,255,255,0.16);
+      border-bottom: 2px solid rgba(255,255,255,0.06);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.55), inset 0 1px 2px rgba(255,255,255,0.08);
+      position: relative; overflow: hidden;
+    }
+    html[data-cf-design="v2"] .cf-v2-crystal-stage::before,
+    html[data-cf-design="v2"] .cf-v2-crystal-stage::after {
+      content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+      background: radial-gradient(circle, #fff 20%, rgba(255,255,255,0.5) 50%, transparent 80%);
+      filter: blur(0.5px); opacity: 0.9;
+    }
+    html[data-cf-design="v2"] .cf-v2-crystal-stage::before { top: -5px; left: 28px; }
+    html[data-cf-design="v2"] .cf-v2-crystal-stage::after  { top: -5px; right: 28px; }
+
+    html[data-cf-design="v2"] .cf-v2-steps-inner {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    }
+    @media (max-width: 960px) {
+      html[data-cf-design="v2"] .cf-v2-steps-inner { grid-template-columns: 1fr; }
+      html[data-cf-design="v2"] .cf-v2-navbar { width: calc(100% - 32px); margin: 20px 16px 0; padding: 0 16px; height: 80px; }
+      html[data-cf-design="v2"] .cf-v2-stage { padding: 0 16px; }
+      html[data-cf-design="v2"] .cf-v2-hero-title { font-size: clamp(2.2rem, 10vw, 4rem); }
+    }
+
+    html[data-cf-design="v2"] .cf-v2-step-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0.01) 100%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px; padding: 28px 24px; position: relative;
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.06);
+    }
+    html[data-cf-design="v2"] .cf-v2-step-card::after {
+      content: ''; position: absolute; top: -1px; right: -1px; width: 16px; height: 16px; border-radius: 50%;
+      background: radial-gradient(circle, #fff 20%, rgba(255,255,255,0.4) 50%, transparent 80%);
+      filter: blur(0.5px); opacity: 0.8;
+    }
+    html[data-cf-design="v2"] .cf-v2-step-num {
+      width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #bfa000 0%, #df6a1a 100%);
+      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; color: #fff;
+      box-shadow: 0 4px 12px rgba(223,106,26,0.35);
+      margin-bottom: 16px;
+    }
+    html[data-cf-design="v2"] .cf-v2-step-card h3 {
+      font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 8px; letter-spacing: -0.02em;
+    }
+    html[data-cf-design="v2"] .cf-v2-step-card p {
+      font-size: 0.85rem; color: rgba(255,255,255,0.72); line-height: 1.45;
+    }
+
+    /* Flame SVG gradient definition for reuse */
+    #v2-flame-grad { display: none; }
+
+
+    /* ========================================================================
+       ADMIN PANEL OVERLAY STYLES
+       ======================================================================== */
+    .cf-admin-overlay {
+      position: fixed; inset: 0; z-index: 99999;
+      background: rgba(2,2,3,0.82);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: center;
+      animation: cf-admin-fade-in 0.3s ease;
+    }
+    @keyframes cf-admin-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+    .cf-admin-panel {
+      width: min(640px, 92vw); max-height: 88vh; overflow-y: auto;
+      background: linear-gradient(180deg, rgba(20,15,12,0.95) 0%, rgba(8,5,3,0.98) 100%);
+      border: 1.5px solid rgba(255,200,120,0.25);
+      border-radius: 28px; padding: 28px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.06);
+      color: #fdfcfa; position: relative;
+      animation: cf-admin-slide-up 0.35s cubic-bezier(0.22,1,0.36,1);
+    }
+    @keyframes cf-admin-slide-up {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .cf-admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+    .cf-admin-header h2 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.03em; margin: 0; }
+    .cf-admin-header p { font-size: 0.82rem; color: #b8aba4; margin: 4px 0 0; }
+    .cf-admin-close { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 36px; height: 36px; color: #fff; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+    .cf-admin-close:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.25); }
+
+    .cf-admin-section { margin-bottom: 1.25rem; }
+    .cf-admin-section h3 { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.75rem; color: #fdeba2; }
+
+    .cf-admin-input {
+      width: 100%; padding: 12px 14px; margin-bottom: 12px; border-radius: 14px;
+      border: 1.5px solid rgba(255,200,120,0.2); background: rgba(255,255,255,0.04);
+      color: #fff; font-size: 0.95rem; outline: none; transition: 0.2s;
+    }
+    .cf-admin-input:focus { border-color: rgba(255,200,120,0.55); background: rgba(255,255,255,0.07); }
+
+    .cf-admin-btn {
+      width: 100%; padding: 14px; border-radius: 100px; border: none;
+      background: linear-gradient(135deg, #df6a1a 0%, #bfa000 100%);
+      color: #fff; font-weight: 700; font-size: 1rem; letter-spacing: 0.02em;
+      cursor: pointer; box-shadow: 0 4px 16px rgba(223,106,26,0.3); transition: 0.2s;
+    }
+    .cf-admin-btn:hover { filter: brightness(1.1); box-shadow: 0 6px 24px rgba(223,106,26,0.4); }
+
+    .cf-admin-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+    .cf-admin-row label { font-weight: 600; color: #fdeba2; min-width: 120px; }
+
+    .cf-admin-pill-group { display: flex; gap: 8px; }
+    .cf-admin-pill {
+      padding: 8px 18px; border-radius: 100px; border: 1.5px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: 0.2s;
+    }
+    .cf-admin-pill.active { border-color: rgba(223,106,26,0.6); color: #fff; background: rgba(223,106,26,0.15); }
+    .cf-admin-pill:hover:not(.active) { border-color: rgba(255,255,255,0.3); color: #fff; }
+
+    .cf-admin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    @media (max-width: 480px) { .cf-admin-grid { grid-template-columns: 1fr; } }
+    .cf-admin-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 16px; text-align: left; cursor: pointer; transition: 0.2s;
+      color: inherit; text-decoration: none; display: block;
+    }
+    .cf-admin-card:hover { border-color: rgba(255,200,120,0.35); background: rgba(255,255,255,0.07); transform: translateY(-2px); }
+    .cf-admin-card strong { display: block; font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+    .cf-admin-card span { font-size: 0.78rem; color: #b8aba4; }
+    .cf-admin-card.cf-admin-danger:hover { border-color: rgba(220,50,50,0.6); background: rgba(220,50,50,0.08); }
+    .cf-admin-card.cf-admin-danger strong { color: #ff8a8a; }
+
+    .cf-admin-footer-btn {
+      margin-top: 10px; padding: 6px 16px; border-radius: 100px;
+      background: linear-gradient(135deg, #df6a1a 0%, #bfa000 100%);
+      border: 1px solid rgba(255,255,255,0.15); color: #fff; font-weight: 700; font-size: 0.8rem;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.4); transition: 0.2s;
+    }
+    .cf-admin-footer-btn:hover { filter: brightness(1.15); }
+    .cf-admin-footer-btn { display: inline-flex; align-items: center; gap: 6px; }
+    .cf-admin-btn-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex-shrink: 0; }
+
+    .cf-admin-link { background: none; border: none; color: #df6a1a; font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
+
+    /* ========================================================================
+       ADMIN LOADER — APPLE-STYLE HIGH-SECURITY LOADING SCREEN (3s)
+       ======================================================================== */
+    #cf-admin-loader-screen {
+      position: fixed; inset: 0; z-index: 99998;
+      background: radial-gradient(ellipse at 50% 40%, #020203 0%, #030201 45%, #0a0605 100%);
+      backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+      display: none; align-items: center; justify-content: center; flex-direction: column;
+      animation: cf-admin-loader-fade-in 0.4s ease;
+      pointer-events: auto;
+    }
+    #cf-admin-loader-screen.active { display: flex; }
+
+    @keyframes cf-admin-loader-fade-in {
+      from { opacity: 0; } to { opacity: 1; }
+    }
+
+    /* Volumetric crystal ring loader */
+    .cf-admin-loader-ring-wrap {
+      position: relative; width: 140px; height: 140px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cf-admin-loader-ring {
+      width: 100%; height: 100%; border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: #df6a1a; border-right-color: rgba(223,106,26,0.25);
+      animation: cf-admin-loader-spin 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+      box-shadow: 0 0 30px rgba(223,106,26,0.15), inset 0 0 20px rgba(223,106,26,0.08);
+    }
+    @keyframes cf-admin-loader-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Inner core glow */
+    .cf-admin-loader-core {
+      position: absolute; width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, #bfa000 0%, #df6a1a 60%, #8a3a15 100%);
+      box-shadow: 0 0 24px rgba(223,106,26,0.5), inset 0 2px 4px rgba(255,255,255,0.15);
+      animation: cf-admin-loader-pulse 1.6s ease-in-out infinite alternate;
+    }
+    @keyframes cf-admin-loader-pulse {
+      from { transform: scale(0.92); opacity: 0.85; }
+      to { transform: scale(1.08); opacity: 1; }
+    }
+
+    .cf-admin-loader-label {
+      margin-top: 28px; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.04em;
+      color: #fdeba2; text-shadow: 0 2px 8px rgba(223,106,26,0.35);
+      animation: cf-admin-loader-fade-in 0.8s ease;
+    }
+    .cf-admin-loader-sub {
+      margin-top: 6px; font-size: 0.78rem; color: rgba(255,255,255,0.45);
+      letter-spacing: 0.02em;
+    }
+
   </style>
 </head>
 <body>
+
+  <!-- Apple iOS 26 Liquid Glass Optical Distortion Loading Screen -->
+  <div id="cf-apple-loader" role="status" aria-label="Carregando ClipFire">
+    <div class="cf-loader-stage">
+      <div class="cf-loader-plasma-ring" aria-hidden="true"></div>
+      <div id="cf-loader-glass-orb">
+        <div class="cf-loader-emblem">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="cf-loader-brand">ClipFire</div>
+    <div class="cf-loader-sub">Liquid Glass · FFmpeg Engine</div>
+    <div class="cf-loader-bar-wrap" aria-hidden="true">
+      <div id="cf-loader-bar-fill"></div>
+    </div>
+    <div id="cf-loader-pct">0%</div>
+  </div>
+  <script>setTimeout(function(){var l=document.getElementById('cf-apple-loader');if(l&&l.style.display!=='none'){l.style.opacity='0';setTimeout(function(){l.style.display='none';},260);}},2200);</script>
+  <!-- ========================================================================
+       NOVO DESIGNER v2 — PHOTO-FAITHFUL STAGE (hidden by default, shown via CSS when data-cf-design="v2")
+       ======================================================================== -->
+  <canvas id="cf-v2-caustic" class="cf-v2-caustic-canvas" aria-hidden="true"></canvas>
+  <div class="cf-v2-obsidian-pocket" aria-hidden="true"></div>
+
+  <div class="cf-v2-stage" id="cf-v2-stage" aria-label="Novo Designer v2" style="display:none;">
+    <nav class="cf-v2-navbar" aria-label="Navegação principal">
+      <a href="#" onclick="window.cfNavigate('landing'); return false;" class="cf-v2-logo-group" aria-label="ClipFire Início">
+        <div class="cf-v2-logo-squircle">
+          <svg class="cf-v2-logo-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <defs>
+              <linearGradient id="v2-flame-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#ff8a2a"/>
+                <stop offset="60%" stop-color="#ff5e00"/>
+                <stop offset="100%" stop-color="#a34e17"/>
+              </linearGradient>
+            </defs>
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="none" stroke="url(#v2-flame-grad)" stroke-width="1.2"/>
+            <path d="M12 6c-2.5 2.5-4 6-4 8s2.5 5.5 6 5.5 6.5-3 7-6 1.5-6.5-2-6.5c-3-.5-4.5 1.5-7-1z" fill="none" stroke="url(#v2-flame-grad)" stroke-width="1.4"/>
+            <line x1="12" y1="18" x2="12" y2="22" stroke="url(#v2-flame-grad)" stroke-width="1.2"/>
+          </svg>
+        </div>
+        <span>ClipFire</span>
+      </a>
+      <div class="cf-v2-nav-center">
+        <button onclick="window.cfSwitchDashTab('generator'); window.cfNavigate('dashboard','generator')" class="cf-v2-nav-pill active" aria-current="page">Gerador</button>
+        <button onclick="window.cfSwitchDashTab('history'); window.cfNavigate('dashboard','history')" class="cf-v2-nav-pill">Histórico</button>
+      </div>
+      <a href="#" onclick="window.cfNavigate('landing'); return false;" class="cf-v2-plan-btn">Meu plano</a>
+      <button onclick="window.cfOpenAdminOverlay()" class="cf-admin-footer-btn" aria-label="Acesso Admin" title="Ctrl+Shift+A" style="margin-left:8px;padding:4px 14px;border-radius:100px;background:linear-gradient(135deg,#df6a1a,#bfa000);border:1px solid rgba(255,255,255,0.2);color:#fff;font-weight:700;font-size:0.78rem;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);transition:0.2s;display:inline-flex;align-items:center;gap:6px;">🔒 Admin</button>
+    </nav>
+
+    <div class="cf-v2-trial-badge" aria-label="Oferta de teste">
+      R$ 99/mês · 7 dias de teste
+    </div>
+
+    <h1 class="cf-v2-hero-title" aria-label="Título principal">
+      Transforme qualquer<br>vídeo em <span class="gradient-text">15 cortes</span>
+    </h1>
+
+    <p class="cf-v2-subtitle" aria-label="Descrição">
+      Cole o link de podcasts, entrevistas ou aulas do YouTube.<br>
+      A IA transcreve e escolhe os 15 melhores momentos<br>para TikTok, Shorts e Reels.
+    </p>
+
+    <div class="cf-v2-cta-row" aria-label="Ações principais">
+      <button onclick="window.cfHandleHeroCTA()" class="cf-v2-btn-primary" aria-label="Gerar cortes agora">
+        <span>Gerar cortes agora</span>
+      </button>
+      <button onclick="window.cfScrollTo('cf-v2-stage');" class="cf-v2-btn-dark" aria-label="Ver demonstração">
+        <span>Ver demonstração</span>
+      </button>
+    </div>
+
+    <div class="cf-v2-features-row" aria-label="Recursos técnicos">
+      <span class="cf-v2-feature-pill">▶ H.264 + AAC</span>
+      <span class="cf-v2-feature-pill">📱 Vertical 9:16</span>
+      <span class="cf-v2-feature-pill">··· Whisper AI</span>
+      <span class="cf-v2-feature-pill">📄 MP4 + ZIP</span>
+    </div>
+
+    <div class="cf-v2-stage-bottom">
+      <div class="cf-v2-crystal-stage" aria-label="Etapas do processo">
+        <div class="cf-v2-steps-inner">
+          <article class="cf-v2-step-card" aria-label="Passo 1">
+            <div class="cf-v2-step-num" aria-hidden="true">1</div>
+            <h3>Cole o link do YouTube</h3>
+            <p>Podcasts, entrevistas, aulas ou qualquer vídeo longo.</p>
+          </article>
+          <article class="cf-v2-step-card" aria-label="Passo 2">
+            <div class="cf-v2-step-num" aria-hidden="true">2</div>
+            <h3>IA analisa e seleciona</h3>
+            <p>Nossa IA transcreve e encontra os 15 melhores momentos.</p>
+          </article>
+          <article class="cf-v2-step-card" aria-label="Passo 3">
+            <div class="cf-v2-step-num" aria-hidden="true">3</div>
+            <h3>Baixe e publique</h3>
+            <p>Receba seus cortes prontos para TikTok, Shorts e Reels.</p>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Ambient Liquid Glass Orbs -->
   <div class="cf-orbs-container" aria-hidden="true">
@@ -1730,6 +4009,26 @@
           <button type="button" class="cf-btn cf-btn-ghost" onclick="window.cfScrollTo('cf-como-funciona')">
             <span>Ver demonstração</span>
           </button>
+        </div>
+
+        <!-- Expo GlassContainer Showcase Strip -->
+        <div class="cf-hero-glass-strip" data-expo-glass-container="14" data-expo-glass="regular" data-expo-interactive="true">
+          <span class="cf-hero-glass-chip" data-expo-glass="clear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+            <span>FFmpeg H.264 + AAC Real</span>
+          </span>
+          <span class="cf-hero-glass-chip" data-expo-glass="clear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="7" y="2" width="10" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            <span>Vertical 9:16 Sem Distorção</span>
+          </span>
+          <span class="cf-hero-glass-chip" data-expo-glass="clear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+            <span>Groq Whisper + Score Viral</span>
+          </span>
+          <span class="cf-hero-glass-chip" data-expo-glass="clear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span>Prévia MP4 & Pacote ZIP</span>
+          </span>
         </div>
       </div>
 
@@ -1937,116 +4236,307 @@
         </div>
       </div>
 
-      <!-- ABA 1: GERADOR INTELIGENTE DE CORTES -->
+      <!-- ABA 1: GERADOR INTELIGENTE DE CORTES (FFMPEG REAL + IA) -->
       <div id="cf-subview-generator">
         <div class="cf-glass-card cf-generator-card">
           <div class="cf-generator-header">
-            <h2 class="cf-generator-title">Processamento de vídeo com IA</h2>
-            <p class="cf-generator-desc">Cole o link completo de qualquer vídeo do YouTube. O backend extrai metadados, busca as legendas reais e a IA da Groq ranqueia os 15 melhores cortes.</p>
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+              <h2 class="cf-generator-title">Processamento e corte real de vídeo (FFmpeg + IA)</h2>
+              <span class="cf-nav-badge" id="cf-ffmpeg-health-badge">Verificando FFmpeg...</span>
+            </div>
+            <p class="cf-generator-desc">
+              Envie o arquivo de vídeo autorizado (.mp4, .mov, .webm, .mkv) ou informe uma URL direta de mídia autorizada. O backend analisa os metadados com FFprobe, identifica os melhores momentos com IA e renderiza arquivos MP4 reais com FFmpeg.
+            </p>
           </div>
 
-          <div class="cf-input-wrapper">
-            <form id="cf-generate-form" class="cf-input-container" onsubmit="event.preventDefault(); window.cfStartGeneration();">
-              <div id="cf-input-sheen" class="cf-input-sheen" aria-hidden="true"></div>
+          <!-- Seletor de Fonte do Vídeo -->
+          <div class="cf-source-tabs" role="tablist">
+            <button type="button" id="cf-src-tab-upload" class="cf-source-tab cf-source-active" onclick="window.cfSwitchSourceMode('upload')">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>1. Upload de Arquivo de Vídeo</span>
+            </button>
+            <button type="button" id="cf-src-tab-url" class="cf-source-tab" onclick="window.cfSwitchSourceMode('url')">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              </svg>
+              <span>2. URL Direta de Mídia Autorizada</span>
+            </button>
+          </div>
 
-              <span class="cf-input-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                </svg>
-              </span>
-
-              <input 
-                type="url" 
-                id="cf-url-input" 
-                class="cf-url-input" 
-                placeholder="Cole o link do YouTube (ex: https://www.youtube.com/watch?v=...)" 
-                autocomplete="off"
-                spellcheck="false"
-                required
+          <form id="cf-generate-form" onsubmit="event.preventDefault(); window.cfStartGeneration();">
+            <!-- MODO 1: UPLOAD DE ARQUIVO DE VÍDEO -->
+            <div id="cf-source-panel-upload">
+              <input
+                type="file"
+                id="cf-video-file-input"
+                accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v"
+                style="display: none;"
               />
+              <div
+                id="cf-upload-dropzone"
+                class="cf-upload-dropzone"
+                role="button"
+                tabindex="0"
+                onclick="document.getElementById('cf-video-file-input').click()"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('cf-video-file-input').click();}"
+              >
+                <div class="cf-step-num" style="width: 46px; height: 46px; margin: 0 auto 0.75rem;">
+                  <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                </div>
+                <div style="font-weight: 700; font-size: 1rem; color: #ffffff; margin-bottom: 0.25rem;">
+                  Clique para selecionar ou arraste seu arquivo de vídeo aqui
+                </div>
+                <div style="font-size: 0.84rem; color: var(--cf-text-muted);" id="cf-upload-limits-hint">
+                  Suporta MP4, MOV, WebM e MKV · Até 500 MB · Renderização nativa H.264 + AAC
+                </div>
 
+                <div id="cf-file-selected-bar" class="cf-file-selected-bar" onclick="event.stopPropagation();">
+                  <div style="display: flex; align-items: center; gap: 0.65rem; min-width: 0;">
+                    <span style="color: #10b981; font-weight: 800;">✓</span>
+                    <div style="min-width: 0;">
+                      <div id="cf-selected-file-name" style="font-weight: 700; color: #ffffff; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+                      <div id="cf-selected-file-size" style="font-size: 0.78rem; color: var(--cf-accent-gold);"></div>
+                    </div>
+                  </div>
+                  <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfClearSelectedFile()">
+                    Remover arquivo
+                  </button>
+                </div>
+              </div>
+
+              <div style="margin-bottom: 0.75rem;">
+                <input
+                  type="url"
+                  id="cf-yt-ref-input"
+                  class="cf-input-field"
+                  style="padding: 0.68rem 1rem; font-size: 0.88rem;"
+                  placeholder="Opcional: Link de referência do YouTube para enriquecer título e legendas oficiais (ex: https://www.youtube.com/watch?v=...)"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+
+            <!-- MODO 2: URL DIRETA DE MÍDIA AUTORIZADA -->
+            <div id="cf-source-panel-url" style="display: none;">
+              <div class="cf-input-container" id="cf-url-pill-box">
+                <div id="cf-input-sheen" class="cf-input-sheen" aria-hidden="true"></div>
+                <span class="cf-input-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                  </svg>
+                </span>
+                <input
+                  type="url"
+                  id="cf-url-input"
+                  class="cf-url-input"
+                  placeholder="URL direta autorizada do arquivo de vídeo (ex: https://cdn.exemplo.com/podcast.mp4)"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </div>
+              <p style="font-size: 0.8rem; color: var(--cf-text-dim); margin-top: 0.5rem;">
+                Importante: URLs de páginas do YouTube não são arquivos MP4 diretos (o ClipFire não contorna DRM ou restrições de plataformas). Para vídeos do YouTube dos quais você detém direitos, envie o arquivo original na aba de Upload.
+              </p>
+            </div>
+
+            <!-- CONFIGURAÇÕES REAIS DE EXPORTAÇÃO FFMPEG -->
+            <div class="cf-export-panel">
+              <div class="cf-export-panel-title">
+                <span>Configurações de Exportação FFmpeg (MP4 · H.264 + AAC)</span>
+                <span style="font-size: 0.74rem; text-transform: none; color: var(--cf-text-muted); font-weight: 500;">
+                  Sem distorção de imagem · Sincronização A/V preservada
+                </span>
+              </div>
+
+              <div class="cf-export-grid">
+                <div class="cf-export-field">
+                  <label for="cf-exp-aspect">Formato / Proporção</label>
+                  <select id="cf-exp-aspect" class="cf-export-select" onchange="window.cfUpdateFramingState()">
+                    <option value="9:16" selected>Vertical 9:16 (Shorts/TikTok/Reels)</option>
+                    <option value="16:9">Horizontal 16:9 (YouTube)</option>
+                    <option value="1:1">Quadrado 1:1 (Feed)</option>
+                    <option value="original">Proporção Original</option>
+                  </select>
+                </div>
+
+                <div class="cf-export-field">
+                  <label for="cf-exp-framing">Enquadramento (9:16 / Crop)</label>
+                  <select id="cf-exp-framing" class="cf-export-select">
+                    <option value="smart_crop" selected>Ajuste Inteligente (Foco Automático)</option>
+                    <option value="crop_center">Corte Centralizado</option>
+                    <option value="fit_blur">Ajuste Inteligente (Fundo Desfocado)</option>
+                  </select>
+                </div>
+
+                <div class="cf-export-field">
+                  <label for="cf-exp-resolution">Resolução de Saída</label>
+                  <select id="cf-exp-resolution" class="cf-export-select">
+                    <option value="1080p" selected>1080p Full HD</option>
+                    <option value="720p">720p HD</option>
+                    <option value="original">Resolução Original</option>
+                  </select>
+                </div>
+
+                <div class="cf-export-field">
+                  <label for="cf-exp-fps">Taxa de Quadros (FPS)</label>
+                  <select id="cf-exp-fps" class="cf-export-select">
+                    <option value="original" selected>FPS Original</option>
+                    <option value="30">30 FPS</option>
+                    <option value="60">60 FPS</option>
+                    <option value="24">24 FPS</option>
+                  </select>
+                </div>
+
+                <div class="cf-export-field">
+                  <label for="cf-exp-quality">Qualidade & Áudio AAC</label>
+                  <select id="cf-exp-quality" class="cf-export-select">
+                    <option value="high" selected>Alta (CRF 19 · AAC 192k)</option>
+                    <option value="medium">Balanceada (CRF 23 · AAC 160k)</option>
+                    <option value="low">Compacta (CRF 27 · AAC 128k)</option>
+                  </select>
+                </div>
+
+                <div class="cf-export-field">
+                  <label for="cf-exp-bitrate">Bitrate Vídeo (kbps, opcional)</label>
+                  <input
+                    type="number"
+                    id="cf-exp-bitrate"
+                    class="cf-export-select"
+                    min="400"
+                    max="25000"
+                    step="100"
+                    placeholder="Auto (ex: 4500)"
+                  />
+                </div>
+
+                <div class="cf-export-field">
+                  <label for="cf-exp-maxclips">Limite de Cortes</label>
+                  <select id="cf-exp-maxclips" class="cf-export-select">
+                    <option value="15" selected>Até 15 cortes (Automático)</option>
+                    <option value="10">Até 10 cortes</option>
+                    <option value="5">Até 5 cortes</option>
+                    <option value="3">Até 3 cortes</option>
+                  </select>
+                </div>
+              </div>
+
+              <label class="cf-auth-consent-row" for="cf-auth-consent">
+                <input type="checkbox" id="cf-auth-consent" checked />
+                <span>Confirmo que sou titular dos direitos ou possuo autorização expressa para processar, cortar e exportar este vídeo.</span>
+              </label>
+            </div>
+
+            <div style="margin-top: 1.25rem; display: flex; align-items: center; justify-content: flex-end; gap: 0.85rem; flex-wrap: wrap;">
               <button type="submit" id="cf-btn-generate" class="cf-btn cf-btn-primary cf-btn-generate cf-sheen">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
                 </svg>
-                <span id="cf-btn-label">Gerar cortes</span>
+                <span id="cf-btn-label">Cortar e renderizar MP4 reais</span>
               </button>
-            </form>
-
-            <div id="cf-url-error" class="cf-error-box" role="alert">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <span id="cf-url-error-text">Por favor, insira um link válido do YouTube (youtube.com ou youtu.be).</span>
             </div>
+          </form>
+
+          <div id="cf-url-error" class="cf-error-box" role="alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span id="cf-url-error-text">Selecione um arquivo de vídeo válido ou informe uma URL direta de mídia autorizada.</span>
           </div>
 
-          <!-- Barra de Progresso com Shimmer e Etapas -->
+          <!-- Barra de Progresso Real Conectada ao FFmpeg (Sem Simulação) -->
           <div id="cf-processing-box" class="cf-processing-card" aria-live="polite">
             <div class="cf-processing-top">
-              <div class="cf-thinking-pill">
-                <div class="cf-dots">
-                  <span class="cf-dot"></span>
-                  <span class="cf-dot"></span>
-                  <span class="cf-dot"></span>
+              <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                <div class="cf-thinking-pill">
+                  <div class="cf-dots">
+                    <span class="cf-dot"></span>
+                    <span class="cf-dot"></span>
+                    <span class="cf-dot"></span>
+                  </div>
+                  <span id="cf-stage-badge-text">Processando</span>
                 </div>
-                <span>Pensando</span>
+                <div class="cf-eta-text" id="cf-eta-label">Conectando ao pipeline FFmpeg...</div>
               </div>
-              <div class="cf-eta-text" id="cf-eta-label">Iniciando conexão com o backend...</div>
+
+              <button type="button" id="cf-btn-cancel-job" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCancelGeneration()">
+                ✕ Cancelar processamento
+              </button>
             </div>
 
             <div class="cf-progress-track">
               <div id="cf-progress-fill" class="cf-progress-fill"></div>
             </div>
 
+            <div id="cf-stage-subdetail" style="font-size: 0.82rem; color: var(--cf-text-muted); margin: -1rem 0 1.35rem; font-variant-numeric: tabular-nums;"></div>
+
             <ul class="cf-steps-list">
               <li class="cf-step-item" id="cf-pstep-0">
                 <span class="cf-step-check">1</span>
-                <span>Obtendo metadados do vídeo...</span>
+                <span>Recebendo vídeo & FFprobe...</span>
               </li>
               <li class="cf-step-item" id="cf-pstep-1">
                 <span class="cf-step-check">2</span>
-                <span>Extraindo transcrição & legendas...</span>
+                <span>Áudio, falas & legendas...</span>
               </li>
               <li class="cf-step-item" id="cf-pstep-2">
                 <span class="cf-step-check">3</span>
-                <span>IA do Groq analisando retenção...</span>
+                <span>IA identificando cortes...</span>
               </li>
               <li class="cf-step-item" id="cf-pstep-3">
                 <span class="cf-step-check">4</span>
-                <span>Cortando os 15 melhores clipes...</span>
+                <span>Renderizando MP4 com FFmpeg...</span>
               </li>
               <li class="cf-step-item" id="cf-pstep-4">
                 <span class="cf-step-check">5</span>
-                <span>Pronto!</span>
+                <span>Validando MP4 & disponibilizando!</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <!-- Grade dos 15 Cortes Virais Gerados -->
+        <!-- Grade dos Cortes Virais Renderizados -->
         <div id="cf-results-box" class="cf-results-section">
           <div class="cf-results-header">
             <div>
               <h3 class="cf-results-title">
-                <span>15 Cortes Virais Extraídos</span>
-                <span class="cf-nav-badge" id="cf-transcript-badge">Groq IA Score 62–98</span>
+                <span id="cf-results-count-title">Cortes Virais Renderizados (MP4)</span>
+                <span class="cf-nav-badge" id="cf-transcript-badge">FFmpeg H.264 + AAC</span>
               </h3>
               <p style="font-size: 0.88rem; color: var(--cf-text-muted); margin-top: 4px;" id="cf-results-video-title">
-                Vídeo analisado e processado com precisão milimétrica de timestamps
+                Arquivos MP4 individuais validados com FFprobe e prontos para reprodução e download
               </p>
             </div>
 
-            <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyAllHooks()">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-              <span>Copiar todos os ganchos</span>
-            </button>
+            <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+              <button type="button" id="cf-btn-download-zip" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfDownloadAllZip()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Baixar todos em ZIP</span>
+              </button>
+
+              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyAllHooks()">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copiar todos os ganchos</span>
+              </button>
+            </div>
           </div>
 
           <div id="cf-cards-grid" class="cf-cards-grid">
@@ -2172,6 +4662,7 @@
   <!-- Modal Interativo de Checkout & Upgrade (Pix + Cartão de Crédito) -->
   <div id="cf-upgrade-modal" class="cf-modal-backdrop" role="dialog" aria-modal="true">
     <div class="cf-glass-card cf-modal-box">
+      <div class="cf-sheet-grabber" aria-hidden="true"></div>
       <h3 style="font-size: 1.45rem; font-weight: 700; color: #ffffff; margin-bottom: 0.35rem;" id="cf-modal-title">
         Upgrade para o Plano Pro
       </h3>
@@ -2271,6 +4762,83 @@
     </div>
   </div>
 
+  <!-- Modal de Pré-Visualização Real do Vídeo MP4 Renderizado -->
+  <div id="cf-video-preview-modal" class="cf-modal-backdrop" role="dialog" aria-modal="true" onclick="if(event.target===this) window.cfClosePreviewModal();">
+    <div class="cf-glass-card cf-video-modal-box">
+      <div class="cf-sheet-grabber" aria-hidden="true"></div>
+      <div class="cf-video-modal-header">
+        <div style="min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; margin-bottom: 0.3rem;">
+            <span class="cf-rank-badge" id="cf-prev-rank-badge">#01</span>
+            <span class="cf-nav-badge" id="cf-prev-tech-badge">1080×1920 · H.264 + AAC</span>
+          </div>
+          <h3 id="cf-prev-title" style="font-size: 1.15rem; font-weight: 700; color: #ffffff; line-height: 1.3;">
+            Prévia Real do Corte MP4
+          </h3>
+        </div>
+        <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfClosePreviewModal()">
+          ✕ Fechar
+        </button>
+      </div>
+
+      <div class="cf-video-stage">
+        <video id="cf-preview-video-el" playsinline preload="metadata"></video>
+      </div>
+
+      <div class="cf-video-controls-bar">
+        <button type="button" id="cf-prev-play-btn" class="cf-ctrl-icon-btn" title="Reproduzir / Pausar" onclick="window.cfTogglePreviewPlay()">
+          <svg id="cf-prev-play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </button>
+
+        <span class="cf-time-readout" id="cf-prev-time-readout">00:00 / 00:00</span>
+
+        <input
+          type="range"
+          id="cf-prev-seek"
+          class="cf-seek-slider"
+          min="0"
+          max="100"
+          step="0.1"
+          value="0"
+          aria-label="Posição do vídeo"
+        />
+
+        <button type="button" id="cf-prev-mute-btn" class="cf-ctrl-icon-btn" title="Ativar / Silenciar áudio" onclick="window.cfTogglePreviewMute()">
+          <svg id="cf-prev-vol-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+        </button>
+
+        <input
+          type="range"
+          id="cf-prev-volume"
+          class="cf-vol-slider"
+          min="0"
+          max="1"
+          step="0.02"
+          value="1"
+          aria-label="Volume do áudio"
+        />
+
+        <button type="button" class="cf-ctrl-icon-btn" title="Tela cheia" onclick="window.cfPreviewFullscreen()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
+
+        <button type="button" id="cf-prev-download-btn" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen">
+          Baixar MP4
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification com Efeito Spring Bounce -->
   <div id="cf-toast" class="cf-toast" role="status" aria-live="polite">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -2279,21 +4847,101 @@
     <span id="cf-toast-msg">Copiado com sucesso!</span>
   </div>
 
-  <!-- Rodapé -->
+  <!-- Floating iOS 26 Liquid Glass Mobile Bottom Dock (`<= 768px`) -->
+  <nav id="cf-mobile-dock" aria-label="Navegação rápida mobile">
+    <div id="cf-mobile-dock-guest" class="cf-mobile-dock-row">
+      <button type="button" class="cf-dock-btn cf-dock-active" data-dock-key="landing" onclick="window.cfNavigate('landing')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Início</span>
+      </button>
+      <button type="button" class="cf-dock-btn" data-dock-key="steps" onclick="window.cfScrollTo('cf-como-funciona')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Passos</span>
+      </button>
+      <button type="button" class="cf-dock-btn" data-dock-key="plans" onclick="window.cfScrollTo('cf-planos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="2" y="5" width="20" height="14" rx="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="2" y1="10" x2="22" y2="10"/>
+        </svg>
+        <span>Planos</span>
+      </button>
+      <button type="button" class="cf-dock-btn cf-dock-cta" data-dock-key="auth" onclick="window.cfHandleHeroCTA()">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <span>Começar</span>
+      </button>
+    </div>
+
+    <div id="cf-mobile-dock-user" class="cf-mobile-dock-row" style="display: none;">
+      <button type="button" class="cf-dock-btn cf-dock-active" data-dock-key="dash-generator" onclick="window.cfNavigate('dashboard', 'generator')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Cortar</span>
+      </button>
+      <button type="button" class="cf-dock-btn" data-dock-key="dash-history" onclick="window.cfNavigate('dashboard', 'history')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="9"/>
+          <polyline points="12 7 12 12 15.5 14" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Histórico</span>
+      </button>
+      <button type="button" class="cf-dock-btn" data-dock-key="dash-plan" onclick="window.cfNavigate('dashboard', 'plan')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="2" y="5" width="20" height="14" rx="3"/>
+          <line x1="2" y1="10" x2="22" y2="10"/>
+        </svg>
+        <span>Meu Plano</span>
+      </button>
+      <button type="button" class="cf-dock-btn" data-dock-key="logout" onclick="window.cfLogout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="16 17 21 12 16 7" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="21" y1="12" x2="9" y2="12" stroke-linecap="round"/>
+        </svg>
+        <span>Sair</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Rodapé Liquid Glass Dock -->
   <footer class="cf-footer">
     <div class="cf-container">
-      <p style="margin-bottom: 0.4rem;">
-        ClipFire © 2025 · SaaS de Cortes Virais de YouTube com Inteligência Artificial
-      </p>
-      <p style="font-size: 0.8rem; color: var(--cf-text-dim);">
-        Alimentado por Groq Whisper, Modelos de Retenção LLaMA-3 e Processamento Contínuo.
-      </p>
+      <div class="cf-footer-glass" data-expo-glass="regular" data-expo-interactive="true">
+        <p style="margin-bottom: 0.4rem; color: var(--cf-text-muted); font-weight: 500;">
+          ClipFire © 2025 · SaaS de Cortes Virais de YouTube com Inteligência Artificial
+        </p>
+        <p style="font-size: 0.8rem; color: var(--cf-text-dim);">
+          Alimentado por Groq Whisper, FFmpeg H.264/AAC Nativo e Interface Liquid Glass (<code style="color: var(--cf-accent-amber);">expo-glass-effect</code>).
+        </p>
+        <button onclick="window.cfOpenAdminOverlay()" class="cf-admin-footer-btn" aria-label="Acesso Admin" title="Ctrl+Shift+A">
+          <span class="cf-admin-btn-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="url(#admin-grad)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <defs>
+                <linearGradient id="admin-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#fdeba2"/>
+                  <stop offset="60%" stop-color="#df6a1a"/>
+                  <stop offset="100%" stop-color="#bfa000"/>
+                </linearGradient>
+              </defs>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+          </span>
+          <span>Admin</span>
+        </button>
+      </div>
     </div>
   </footer>
 
   <!-- ==========================================================================
-       LÓGICA JAVASCRIPT CONECTADA AO BACKEND (GROQ + YOUTUBE + CHECKOUT)
-       ========================================================================== */
+       LÓGICA JAVASCRIPT CONECTADA AO PIPELINE REAL (FFMPEG + FFPROBE + IA)
+       ==========================================================================
   -->
   <script>
     (function () {
@@ -2307,15 +4955,47 @@
         userPlan: 'Free',
         usageCount: 0,
         history: [],
+        sourceMode: 'upload',
+        selectedFile: null,
+        activeJobId: null,
+        activeXhr: null,
+        activeEventSource: null,
+        activePollTimer: null,
+        currentJob: null,
         currentGeneratedClips: [],
         currentVideoMeta: null,
+        serverLimits: { maxUploadSizeMb: 500, maxVideoDurationSec: 7200 },
         pendingModalPlan: 'Pro',
         selectedPayMethod: 'pix'
       };
 
+      function escapeHtml(val) {
+        return String(val === undefined || val === null ? '' : val)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function formatBytes(bytes) {
+        const n = Number(bytes || 0);
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / (1024 * 1024)).toFixed(2) + ' MB';
+      }
+
+      function formatClock(seconds) {
+        const s = Math.max(0, Math.floor(Number(seconds) || 0));
+        const m = Math.floor(s / 60);
+        const rem = s % 60;
+        return String(m).padStart(2, '0') + ':' + String(rem).padStart(2, '0');
+      }
+
       document.addEventListener('DOMContentLoaded', () => {
         loadLocalStorage();
         bindInputInteractions();
+        bindVideoPlayerEvents();
         bindScrollReveal();
         checkBackendStatus();
 
@@ -2326,23 +5006,45 @@
         }
       });
 
-      // Checagem de status da API Groq no backend
+      // Verificação real do status do FFmpeg, FFprobe e IA no backend
       async function checkBackendStatus() {
         try {
           const res = await fetch('/api/status');
-          if (res.ok) {
-            const data = await res.json();
-            const badge = document.getElementById('cf-engine-status-badge');
-            if (badge) {
-              if (data.groqConfigured) {
-                badge.textContent = 'Groq API Ativa (LLaMA-3.3-70B + Whisper)';
-              } else {
-                badge.textContent = 'Groq Whisper + Análise de Retenção Neural';
-              }
+          if (!res.ok) return;
+          const data = await res.json();
+
+          if (data.limits) {
+            STATE.serverLimits = data.limits;
+            const hint = document.getElementById('cf-upload-limits-hint');
+            if (hint) {
+              const maxHours = Math.round((data.limits.maxVideoDurationSec || 7200) / 60);
+              hint.textContent = `Suporta MP4, MOV, WebM e MKV · Até ${data.limits.maxUploadSizeMb} MB (${maxHours} min) · Renderização real H.264 + AAC`;
+            }
+          }
+
+          const badge = document.getElementById('cf-engine-status-badge');
+          if (badge) {
+            if (data.ffmpegAvailable && data.groqConfigured) {
+              badge.textContent = 'FFmpeg Nativo + Groq AI (LLaMA-3.3 + Whisper)';
+            } else if (data.ffmpegAvailable) {
+              badge.textContent = 'FFmpeg & FFprobe Nativos Ativos + IA de Retenção';
+            }
+          }
+
+          const ffBadge = document.getElementById('cf-ffmpeg-health-badge');
+          if (ffBadge) {
+            if (data.ffmpegAvailable) {
+              ffBadge.textContent = '✓ FFmpeg + FFprobe Prontos (H.264/AAC)';
+              ffBadge.style.borderColor = 'rgba(16, 185, 129, 0.45)';
+              ffBadge.style.color = '#34d399';
+            } else {
+              ffBadge.textContent = '✕ FFmpeg Indisponível';
+              ffBadge.style.borderColor = 'rgba(255, 107, 107, 0.5)';
+              ffBadge.style.color = '#ff6b6b';
             }
           }
         } catch (e) {
-          console.warn('[ClipFire Status]: Backend offline ou em modo estático', e);
+          console.warn('[ClipFire Status]: Falha ao consultar /api/status', e);
         }
       }
 
@@ -2358,17 +5060,19 @@
           if (plan) STATE.userPlan = plan;
 
           const count = localStorage.getItem('cf_usage_count');
-          if (count !== null) STATE.usageCount = parseInt(count, 10);
+          if (count !== null) STATE.usageCount = parseInt(count, 10) || 0;
 
           const hist = localStorage.getItem('cf_history');
-          if (hist) STATE.history = JSON.parse(hist);
+          if (hist) STATE.history = JSON.parse(hist) || [];
         } catch (e) {
           console.warn('Erro ao carregar dados do localStorage:', e);
         }
         updateGlobalUI();
       }
 
-      function saveLocalStorage() {
+      let storageWriteTimer = null;
+      function flushLocalStorage() {
+        storageWriteTimer = null;
         try {
           if (STATE.currentUser) {
             localStorage.setItem('cf_user', JSON.stringify(STATE.currentUser));
@@ -2377,11 +5081,16 @@
           }
           localStorage.setItem('cf_plan', STATE.userPlan);
           localStorage.setItem('cf_usage_count', STATE.usageCount.toString());
-          localStorage.setItem('cf_history', JSON.stringify(STATE.history));
+          localStorage.setItem('cf_history', JSON.stringify(STATE.history.slice(0, 30)));
         } catch (e) {
           console.warn('Erro ao salvar no localStorage:', e);
         }
+      }
+
+      function saveLocalStorage() {
         updateGlobalUI();
+        if (storageWriteTimer) clearTimeout(storageWriteTimer);
+        storageWriteTimer = setTimeout(flushLocalStorage, 80);
       }
 
       function updateGlobalUI() {
@@ -2453,7 +5162,7 @@
         });
 
         if (tabId === 'history') {
-          renderHistoryList();
+          syncAndRenderHistory();
         }
       };
 
@@ -2491,7 +5200,7 @@
       };
 
       /* ========================================================================
-         AUTENTICAÇÃO SIMULADA
+         AUTENTICAÇÃO
          ======================================================================== */
       window.cfSwitchAuthTab = function (mode) {
         STATE.authMode = mode;
@@ -2542,33 +5251,140 @@
       };
 
       /* ========================================================================
-         INTERAÇÕES DE INPUT & GLOW PULSANTE
+         SELEÇÃO DE FONTE DO VÍDEO (UPLOAD REAL E URL DIRETA AUTORIZADA)
          ======================================================================== */
-      function bindInputInteractions() {
-        const urlInput = document.getElementById('cf-url-input');
-        const container = document.querySelector('.cf-input-container');
-        const sheen = document.getElementById('cf-input-sheen');
+      window.cfSwitchSourceMode = function (mode) {
+        STATE.sourceMode = mode === 'url' ? 'url' : 'upload';
+        const tabUp = document.getElementById('cf-src-tab-upload');
+        const tabUrl = document.getElementById('cf-src-tab-url');
+        const panelUp = document.getElementById('cf-source-panel-upload');
+        const panelUrl = document.getElementById('cf-source-panel-url');
+        hideError();
+
+        if (STATE.sourceMode === 'upload') {
+          if (tabUp) tabUp.classList.add('cf-source-active');
+          if (tabUrl) tabUrl.classList.remove('cf-source-active');
+          if (panelUp) panelUp.style.display = 'block';
+          if (panelUrl) panelUrl.style.display = 'none';
+        } else {
+          if (tabUrl) tabUrl.classList.add('cf-source-active');
+          if (tabUp) tabUp.classList.remove('cf-source-active');
+          if (panelUrl) panelUrl.style.display = 'block';
+          if (panelUp) panelUp.style.display = 'none';
+        }
+      };
+
+      window.cfUpdateFramingState = function () {
+        const aspectEl = document.getElementById('cf-exp-aspect');
+        const framingEl = document.getElementById('cf-exp-framing');
+        if (!aspectEl || !framingEl) return;
+        framingEl.disabled = (aspectEl.value === 'original');
+      };
+
+      function setSelectedVideoFile(file) {
+        hideError();
+        if (!file) {
+          window.cfClearSelectedFile();
+          return;
+        }
+
+        const maxBytes = (STATE.serverLimits.maxUploadSizeMb || 500) * 1024 * 1024;
+        if (file.size > maxBytes) {
+          showError(`O arquivo "${file.name}" (${formatBytes(file.size)}) excede o limite de ${STATE.serverLimits.maxUploadSizeMb} MB.`);
+          return;
+        }
+        if (file.size <= 0) {
+          showError('O arquivo selecionado está vazio.');
+          return;
+        }
+
+        STATE.selectedFile = file;
+        const bar = document.getElementById('cf-file-selected-bar');
+        const nameEl = document.getElementById('cf-selected-file-name');
+        const sizeEl = document.getElementById('cf-selected-file-size');
+
+        if (nameEl) nameEl.textContent = file.name;
+        if (sizeEl) sizeEl.textContent = `${formatBytes(file.size)} · Pronto para análise FFprobe e corte FFmpeg`;
+        if (bar) bar.classList.add('cf-show');
+      }
+
+      window.cfClearSelectedFile = function () {
+        STATE.selectedFile = null;
+        const input = document.getElementById('cf-video-file-input');
+        if (input) input.value = '';
+        const bar = document.getElementById('cf-file-selected-bar');
+        if (bar) bar.classList.remove('cf-show');
+      };
+
+      function showError(msg) {
         const errorBox = document.getElementById('cf-url-error');
+        const errorText = document.getElementById('cf-url-error-text');
+        if (errorText) errorText.textContent = msg;
+        if (errorBox) errorBox.classList.add('cf-visible');
+      }
 
-        if (!urlInput || !container) return;
+      function hideError() {
+        const errorBox = document.getElementById('cf-url-error');
+        if (errorBox) errorBox.classList.remove('cf-visible');
+      }
 
-        urlInput.addEventListener('input', () => {
-          if (urlInput.value.trim().length > 0) {
+      function bindInputInteractions() {
+        const fileInput = document.getElementById('cf-video-file-input');
+        const dropzone = document.getElementById('cf-upload-dropzone');
+        const urlInput = document.getElementById('cf-url-input');
+        const container = document.getElementById('cf-url-pill-box');
+        const sheen = document.getElementById('cf-input-sheen');
+
+        if (fileInput) {
+          fileInput.addEventListener('change', () => {
+            if (fileInput.files && fileInput.files[0]) {
+              setSelectedVideoFile(fileInput.files[0]);
+            }
+          });
+        }
+
+        if (dropzone) {
+          ['dragenter', 'dragover'].forEach(evtName => {
+            dropzone.addEventListener(evtName, (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              dropzone.classList.add('cf-drag-over');
+            });
+          });
+          ['dragleave', 'drop'].forEach(evtName => {
+            dropzone.addEventListener(evtName, (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              dropzone.classList.remove('cf-drag-over');
+            });
+          });
+          dropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files[0]) {
+              setSelectedVideoFile(dt.files[0]);
+            }
+          });
+        }
+
+        if (urlInput && container) {
+          urlInput.addEventListener('input', () => {
+            if (urlInput.value.trim().length > 0) {
+              container.classList.add('cf-active-glow');
+            } else {
+              container.classList.remove('cf-active-glow');
+            }
+            hideError();
+          });
+
+          urlInput.addEventListener('paste', () => {
             container.classList.add('cf-active-glow');
-          } else {
-            container.classList.remove('cf-active-glow');
-          }
-          if (errorBox) errorBox.classList.remove('cf-visible');
-        });
-
-        urlInput.addEventListener('paste', () => {
-          container.classList.add('cf-active-glow');
-          if (sheen) {
-            sheen.classList.remove('cf-animate-sheen');
-            void sheen.offsetWidth;
-            sheen.classList.add('cf-animate-sheen');
-          }
-        });
+            if (sheen) {
+              sheen.classList.remove('cf-animate-sheen');
+              void sheen.offsetWidth;
+              sheen.classList.add('cf-animate-sheen');
+            }
+          });
+        }
 
         const submitBtn = document.getElementById('cf-btn-generate');
         if (submitBtn) {
@@ -2587,184 +5403,457 @@
         }
       }
 
-      function isValidYouTubeUrl(url) {
+      function isYouTubePageUrl(url) {
         if (!url) return false;
         try {
           const parsed = new URL(url.trim());
           const host = parsed.hostname.toLowerCase();
-          return host.includes('youtube.com') || host.includes('youtu.be');
+          return host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtu.be';
         } catch {
           return false;
         }
       }
 
       /* ========================================================================
-         PROCESSAMENTO REAL NO BACKEND EXPRESS & GROQ AI
+         PIPELINE REAL DE PROCESSAMENTO FFMPEG (UPLOAD REAL + SSE + CANCELAMENTO)
          ======================================================================== */
-      window.cfStartGeneration = async function () {
-        const urlInput = document.getElementById('cf-url-input');
-        const errorBox = document.getElementById('cf-url-error');
-        const errorText = document.getElementById('cf-url-error-text');
-        const url = urlInput.value.trim();
+      function setGeneratorControlsDisabled(disabled) {
+        const submitBtn = document.getElementById('cf-btn-generate');
+        const btnLabel = document.getElementById('cf-btn-label');
+        if (submitBtn) submitBtn.disabled = disabled;
 
-        if (!isValidYouTubeUrl(url)) {
-          if (errorText) errorText.textContent = 'Por favor, insira um link válido do YouTube (youtube.com ou youtu.be).';
-          if (errorBox) errorBox.classList.add('cf-visible');
-          urlInput.focus();
+        ['cf-exp-aspect', 'cf-exp-resolution', 'cf-exp-fps', 'cf-exp-quality', 'cf-exp-bitrate', 'cf-exp-maxclips', 'cf-auth-consent'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = disabled;
+        });
+        if (!disabled) {
+          window.cfUpdateFramingState();
+        } else {
+          const fr = document.getElementById('cf-exp-framing');
+          if (fr) fr.disabled = true;
+        }
+
+        if (btnLabel) {
+          if (disabled) {
+            btnLabel.innerHTML = `
+              <span class="cf-dots" aria-hidden="true" style="margin-right: 4px;">
+                <span class="cf-dot" style="background:#fff;"></span>
+                <span class="cf-dot" style="background:#fff;"></span>
+                <span class="cf-dot" style="background:#fff;"></span>
+              </span>
+              <span>Renderizando...</span>
+            `;
+          } else {
+            btnLabel.textContent = 'Cortar e renderizar MP4 reais';
+          }
+        }
+      }
+
+      function updateProcessingBoxUI(jobOrUploadState) {
+        const fill = document.getElementById('cf-progress-fill');
+        const etaLabel = document.getElementById('cf-eta-label');
+        const subDetail = document.getElementById('cf-stage-subdetail');
+        const badgeText = document.getElementById('cf-stage-badge-text');
+
+        if (badgeText) badgeText.textContent = jobOrUploadState.badge || 'Processando';
+        if (etaLabel) etaLabel.textContent = jobOrUploadState.stageLabel || '';
+        if (subDetail) subDetail.textContent = jobOrUploadState.stageDetail || '';
+
+        if (fill) {
+          if (typeof jobOrUploadState.progressPct === 'number' && Number.isFinite(jobOrUploadState.progressPct)) {
+            fill.classList.remove('cf-progress-indeterminate');
+            fill.style.width = `${Math.min(100, Math.max(0, jobOrUploadState.progressPct))}%`;
+          } else {
+            // Honest indeterminate state when exact percentage is not measurable
+            fill.classList.add('cf-progress-indeterminate');
+          }
+        }
+
+        const activeIdx = typeof jobOrUploadState.stepIndex === 'number' ? jobOrUploadState.stepIndex : 0;
+        for (let i = 0; i < 5; i++) {
+          const stepEl = document.getElementById(`cf-pstep-${i}`);
+          if (!stepEl) continue;
+          stepEl.className = 'cf-step-item';
+          if (jobOrUploadState.allDone || i < activeIdx) {
+            stepEl.classList.add('cf-step-done');
+          } else if (i === activeIdx) {
+            stepEl.classList.add('cf-step-active');
+          }
+        }
+      }
+
+      function stopJobMonitoring() {
+        if (STATE.activeEventSource) {
+          STATE.activeEventSource.close();
+          STATE.activeEventSource = null;
+        }
+        if (STATE.activePollTimer) {
+          clearInterval(STATE.activePollTimer);
+          STATE.activePollTimer = null;
+        }
+        STATE.activeXhr = null;
+      }
+
+      function collectExportSettingsFromUI() {
+        const aspectRatio = document.getElementById('cf-exp-aspect')?.value || '9:16';
+        const framingMode = document.getElementById('cf-exp-framing')?.value || 'smart_crop';
+        const resolution = document.getElementById('cf-exp-resolution')?.value || '1080p';
+        const fps = document.getElementById('cf-exp-fps')?.value || 'original';
+        const quality = document.getElementById('cf-exp-quality')?.value || 'high';
+        const maxClips = parseInt(document.getElementById('cf-exp-maxclips')?.value || '15', 10) || 15;
+        const bitrateVal = document.getElementById('cf-exp-bitrate')?.value?.trim();
+
+        const settings = {
+          aspectRatio,
+          framingMode,
+          resolution,
+          fps,
+          quality,
+          maxClips
+        };
+        if (bitrateVal && Number(bitrateVal) >= 400) {
+          settings.videoBitrateKbps = Number(bitrateVal);
+        }
+        return settings;
+      }
+
+      window.cfStartGeneration = function () {
+        hideError();
+
+        // Prevent duplicate click while already running
+        if (STATE.activeJobId || STATE.activeXhr) {
+          window.cfShowToast('Já existe um processamento em andamento.');
           return;
         }
 
-        if (errorBox) errorBox.classList.remove('cf-visible');
+        const consentEl = document.getElementById('cf-auth-consent');
+        if (!consentEl || !consentEl.checked) {
+          showError('Confirme a declaração de direitos/autorização antes de processar o vídeo.');
+          return;
+        }
 
-        // Verificação de cota Free
+        // Check Free quota
         if (STATE.userPlan === 'Free' && STATE.usageCount >= 3) {
           window.cfOpenUpgradeModal('Pro', true);
           return;
         }
 
-        const submitBtn = document.getElementById('cf-btn-generate');
-        const btnLabel = document.getElementById('cf-btn-label');
-        submitBtn.disabled = true;
-        urlInput.disabled = true;
+        const exportSettings = collectExportSettingsFromUI();
+        const formData = new FormData();
+        formData.append('userAuthorized', 'true');
+        formData.append('exportSettings', JSON.stringify(exportSettings));
 
-        btnLabel.innerHTML = `
-          <span class="cf-dots" aria-hidden="true" style="margin-right: 4px;">
-            <span class="cf-dot" style="background:#fff;"></span>
-            <span class="cf-dot" style="background:#fff;"></span>
-            <span class="cf-dot" style="background:#fff;"></span>
-          </span>
-          <span>Pensando</span>
-        `;
+        if (STATE.sourceMode === 'upload') {
+          if (!STATE.selectedFile) {
+            showError('Selecione um arquivo de vídeo (.mp4, .mov, .webm, .mkv) para gerar os cortes reais.');
+            return;
+          }
+          formData.append('videoFile', STATE.selectedFile);
 
+          const ytRef = document.getElementById('cf-yt-ref-input')?.value?.trim() || '';
+          if (ytRef) {
+            formData.append('youtubeRefUrl', ytRef);
+          }
+        } else {
+          const rawUrl = document.getElementById('cf-url-input')?.value?.trim() || '';
+          if (!rawUrl) {
+            showError('Informe uma URL direta autorizada para o arquivo de vídeo (.mp4, .mov, .webm).');
+            return;
+          }
+          if (isYouTubePageUrl(rawUrl)) {
+            // Move YouTube URL to reference field and guide user clearly
+            const ytRefEl = document.getElementById('cf-yt-ref-input');
+            if (ytRefEl && !ytRefEl.value) ytRefEl.value = rawUrl;
+            window.cfSwitchSourceMode('upload');
+            showError('Uma URL do YouTube não é um arquivo de vídeo baixável (o ClipFire não contorna DRM/proteções). Mantivemos seu link como referência de legendas: selecione agora o arquivo de vídeo autorizado no seu dispositivo.');
+            return;
+          }
+          formData.append('authorizedMediaUrl', rawUrl);
+        }
+
+        setGeneratorControlsDisabled(true);
         const resultsBox = document.getElementById('cf-results-box');
-        resultsBox.style.display = 'none';
+        if (resultsBox) resultsBox.style.display = 'none';
 
         const procBox = document.getElementById('cf-processing-box');
-        const fill = document.getElementById('cf-progress-fill');
-        const etaLabel = document.getElementById('cf-eta-label');
-        procBox.style.display = 'block';
-        procBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (procBox) {
+          procBox.style.display = 'block';
+          procBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
 
-        const steps = [
-          { id: 'cf-pstep-0', pct: 20, text: 'Etapa 1 de 5: Conectando e obtendo metadados do vídeo...' },
-          { id: 'cf-pstep-1', pct: 45, text: 'Etapa 2 de 5: Extraindo áudio e transcrição palavra por palavra...' },
-          { id: 'cf-pstep-2', pct: 70, text: 'Etapa 3 de 5: IA da Groq analisando picos de retenção e ganchos...' },
-          { id: 'cf-pstep-3', pct: 90, text: 'Etapa 4 de 5: Cortando e estruturando os 15 clipes verticais...' },
-          { id: 'cf-pstep-4', pct: 100, text: 'Etapa 5 de 5: Pronto! 15 cortes finalizados com sucesso.' }
-        ];
-
-        steps.forEach(s => {
-          const el = document.getElementById(s.id);
-          if (el) el.className = 'cf-step-item';
+        updateProcessingBoxUI({
+          badge: STATE.sourceMode === 'upload' ? 'Enviando vídeo' : 'Iniciando',
+          stageLabel: STATE.sourceMode === 'upload' ? 'Enviando arquivo de vídeo para o servidor...' : 'Solicitando acesso à mídia autorizada...',
+          stageDetail: '',
+          progressPct: 0,
+          stepIndex: 0
         });
-        fill.style.width = '0%';
 
-        let currentStep = 0;
-        const progressTimer = setInterval(() => {
-          if (currentStep < 4) {
-            const st = steps[currentStep];
-            const currentEl = document.getElementById(st.id);
-            if (currentEl) currentEl.classList.add('cf-step-active');
-            etaLabel.textContent = st.text;
-            fill.style.width = `${st.pct}%`;
+        const xhr = new XMLHttpRequest();
+        STATE.activeXhr = xhr;
 
-            if (currentStep > 0) {
-              const prevEl = document.getElementById(steps[currentStep - 1].id);
-              if (prevEl) {
-                prevEl.classList.remove('cf-step-active');
-                prevEl.classList.add('cf-step-done');
-              }
+        xhr.upload.onprogress = function (evt) {
+          if (STATE.sourceMode !== 'upload') return;
+          if (evt.lengthComputable && evt.total > 0) {
+            const pct = Math.round((evt.loaded / evt.total) * 100);
+            updateProcessingBoxUI({
+              badge: `Upload ${pct}%`,
+              stageLabel: `Enviando arquivo de vídeo (${pct}%)...`,
+              stageDetail: `${formatBytes(evt.loaded)} de ${formatBytes(evt.total)} transferidos`,
+              progressPct: pct,
+              stepIndex: 0
+            });
+          }
+        };
+
+        xhr.onerror = function () {
+          stopJobMonitoring();
+          if (procBox) procBox.style.display = 'none';
+          setGeneratorControlsDisabled(false);
+          showError('Falha de conexão durante o envio do vídeo ao servidor.');
+        };
+
+        xhr.onabort = function () {
+          stopJobMonitoring();
+          if (procBox) procBox.style.display = 'none';
+          setGeneratorControlsDisabled(false);
+          window.cfShowToast('Envio do vídeo cancelado.');
+        };
+
+        xhr.onload = function () {
+          STATE.activeXhr = null;
+          let payload = null;
+          try {
+            payload = JSON.parse(xhr.responseText);
+          } catch {
+            payload = null;
+          }
+
+          if (xhr.status < 200 || xhr.status >= 300 || !payload || !payload.job) {
+            if (procBox) procBox.style.display = 'none';
+            setGeneratorControlsDisabled(false);
+            const errMsg = payload?.error || `Falha ao iniciar processamento (HTTP ${xhr.status}).`;
+            showError(errMsg);
+            window.cfShowToast(errMsg);
+            return;
+          }
+
+          if (payload.deduplicated) {
+            window.cfShowToast('Este mesmo vídeo já está em processamento; conectando ao progresso atual.');
+          }
+
+          attachToRunningJob(payload.job);
+        };
+
+        xhr.open('POST', '/api/jobs', true);
+        xhr.send(formData);
+      };
+
+      function attachToRunningJob(initialJob) {
+        stopJobMonitoring();
+        STATE.activeJobId = initialJob.id;
+        handleJobStateUpdate(initialJob);
+
+        // 1. Live SSE Stream
+        if (window.EventSource) {
+          const es = new EventSource(`/api/jobs/${encodeURIComponent(initialJob.id)}/events`);
+          STATE.activeEventSource = es;
+          es.onmessage = (evt) => {
+            try {
+              const job = JSON.parse(evt.data);
+              handleJobStateUpdate(job);
+            } catch {
+              // ignore malformed chunk
             }
-            currentStep++;
+          };
+          es.onerror = () => {
+            // Polling fallback below keeps progress synchronized even if proxy closes SSE
+          };
+        }
+
+        // 2. Resilient status sync fallback (only fires when SSE is not actively open!)
+        STATE.activePollTimer = setInterval(async () => {
+          if (!STATE.activeJobId) return;
+          if (STATE.activeEventSource && STATE.activeEventSource.readyState === 1) return;
+          try {
+            const res = await fetch(`/api/jobs/${encodeURIComponent(STATE.activeJobId)}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data?.job) handleJobStateUpdate(data.job);
+            }
+          } catch {
+            // ignore transient network hiccup
           }
-        }, 900);
+        }, 1400);
+      }
 
-        try {
-          // Chamada real ao servidor backend Express
-          const response = await fetch('/api/process-video', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
+      function handleJobStateUpdate(job) {
+        if (!job || (STATE.activeJobId && job.id !== STATE.activeJobId)) return;
+        STATE.currentJob = job;
+
+        if (job.status === 'completed') {
+          stopJobMonitoring();
+          STATE.activeJobId = null;
+
+          updateProcessingBoxUI({
+            badge: 'Concluído',
+            stageLabel: job.stageLabel || 'Processamento concluído!',
+            stageDetail: job.stageDetail || '',
+            progressPct: 100,
+            stepIndex: 4,
+            allDone: true
           });
-
-          clearInterval(progressTimer);
-
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || 'Falha ao processar o vídeo no servidor.');
-          }
-
-          const data = await response.json();
-          STATE.currentVideoMeta = data.video;
-          STATE.currentGeneratedClips = data.cuts;
-
-          // Etapa 5 Finalizada
-          steps.forEach(s => {
-            const el = document.getElementById(s.id);
-            if (el) el.className = 'cf-step-item cf-step-done';
-          });
-          fill.style.width = '100%';
-          etaLabel.textContent = 'Processamento concluído com sucesso!';
 
           setTimeout(() => {
-            procBox.style.display = 'none';
-            submitBtn.disabled = false;
-            urlInput.disabled = false;
-            btnLabel.textContent = 'Gerar cortes';
+            const procBox = document.getElementById('cf-processing-box');
+            if (procBox) procBox.style.display = 'none';
+            setGeneratorControlsDisabled(false);
 
-            // Incrementar uso e salvar histórico
-            STATE.usageCount += 1;
-            STATE.history.unshift({
-              id: 'vid_' + Date.now(),
-              url: url,
-              title: data.video.title,
-              thumbnail: data.video.thumbnail,
-              author: data.video.author,
-              date: new Date().toLocaleDateString('pt-BR', {
-                day: '2-digit', month: 'short', year: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-              }),
-              clipsCount: data.cuts.length
-            });
-            saveLocalStorage();
-
-            // Atualizar cabeçalho dos resultados com os dados reais do vídeo
-            const resTitle = document.getElementById('cf-results-video-title');
-            if (resTitle) {
-              resTitle.innerHTML = `<strong>${data.video.title}</strong> · Canal: ${data.video.author} ${data.video.hasRealTranscript ? '· <span style="color:#10b981;">✓ Legendas Oficiais Extraídas</span>' : ''}`;
+            // Save real processed job in user history & increment quota
+            const alreadyRecorded = STATE.history.some(h => h.jobId === job.id);
+            if (!alreadyRecorded) {
+              STATE.usageCount += 1;
+              STATE.history.unshift({
+                id: job.id,
+                jobId: job.id,
+                title: job.video?.title || 'Vídeo Processado',
+                thumbnail: job.video?.thumbnail || (job.cuts[0]?.thumbnailUrl || ''),
+                author: job.video?.author || 'Criador',
+                resolution: job.cuts[0]?.resolutionLabel || `${job.video?.width || 0}×${job.video?.height || 0}`,
+                aspectRatio: job.exportSettings?.aspectRatio || '9:16',
+                durationSec: job.video?.durationSec || 0,
+                date: new Date().toLocaleDateString('pt-BR', {
+                  day: '2-digit', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit'
+                }),
+                clipsCount: (job.cuts || []).length
+              });
+              saveLocalStorage();
             }
 
-            const transcriptBadge = document.getElementById('cf-transcript-badge');
-            if (transcriptBadge) {
-              transcriptBadge.textContent = data.provider.includes('groq') ? 'Groq LLaMA-3 Score 62–98' : 'IA Score 62–98';
+            displayCompletedJobResults(job);
+            window.cfShowToast(`✓ ${job.cuts.length} cortes MP4 renderizados e validados com FFmpeg!`);
+          }, 350);
+          return;
+        }
+
+        if (job.status === 'failed') {
+          stopJobMonitoring();
+          STATE.activeJobId = null;
+          const procBox = document.getElementById('cf-processing-box');
+          if (procBox) procBox.style.display = 'none';
+          setGeneratorControlsDisabled(false);
+          const msg = job.error || 'Erro durante o processamento FFmpeg.';
+          showError(msg);
+          window.cfShowToast('Falha: ' + msg);
+          return;
+        }
+
+        if (job.status === 'cancelled') {
+          stopJobMonitoring();
+          STATE.activeJobId = null;
+          const procBox = document.getElementById('cf-processing-box');
+          if (procBox) procBox.style.display = 'none';
+          setGeneratorControlsDisabled(false);
+          window.cfShowToast('Processamento cancelado e arquivos temporários limpos.');
+          return;
+        }
+
+        // Active running stage
+        const pctLabel = typeof job.progressPct === 'number' ? `${job.progressPct}%` : 'Em execução';
+        updateProcessingBoxUI({
+          badge: pctLabel,
+          stageLabel: job.stageLabel || 'Processando vídeo...',
+          stageDetail: job.stageDetail || '',
+          progressPct: job.progressPct,
+          stepIndex: job.stepIndex ?? 0
+        });
+      }
+
+      window.cfCancelGeneration = async function () {
+        if (STATE.activeXhr) {
+          STATE.activeXhr.abort();
+          STATE.activeXhr = null;
+          return;
+        }
+        const jobId = STATE.activeJobId;
+        if (!jobId) return;
+
+        try {
+          const btn = document.getElementById('cf-btn-cancel-job');
+          if (btn) btn.disabled = true;
+          const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
+          if (btn) btn.disabled = false;
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.job) {
+              handleJobStateUpdate(data.job);
+              return;
             }
-
-            renderClipsGrid(data.cuts, data.video.thumbnail);
-
-            resultsBox.style.display = 'block';
-            resultsBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            window.cfShowToast(`15 cortes extraídos do vídeo "${data.video.title.slice(0, 30)}..."!`);
-          }, 600);
-
+          }
+          stopJobMonitoring();
+          STATE.activeJobId = null;
+          const procBox = document.getElementById('cf-processing-box');
+          if (procBox) procBox.style.display = 'none';
+          setGeneratorControlsDisabled(false);
+          window.cfShowToast('Processamento cancelado.');
         } catch (err) {
-          clearInterval(progressTimer);
-          procBox.style.display = 'none';
-          submitBtn.disabled = false;
-          urlInput.disabled = false;
-          btnLabel.textContent = 'Gerar cortes';
-
-          if (errorText) errorText.textContent = err.message || 'Erro ao conectar ao servidor.';
-          if (errorBox) errorBox.classList.add('cf-visible');
-          window.cfShowToast('Falha no processamento: ' + err.message);
+          window.cfShowToast('Erro ao solicitar cancelamento: ' + (err.message || 'falha de rede'));
         }
       };
 
+      function displayCompletedJobResults(job) {
+        STATE.currentJob = job;
+        STATE.currentVideoMeta = job.video || null;
+        STATE.currentGeneratedClips = job.cuts || [];
+
+        const countTitle = document.getElementById('cf-results-count-title');
+        if (countTitle) {
+          countTitle.textContent = `${job.cuts.length} ${job.cuts.length === 1 ? 'Corte Viral Renderizado' : 'Cortes Virais Renderizados'} (MP4)`;
+        }
+
+        const resTitle = document.getElementById('cf-results-video-title');
+        if (resTitle && job.video) {
+          const transcriptNote =
+            job.video.transcriptSource === 'groq_whisper'
+              ? ' · <span style="color:#10b981;">✓ Transcrição Groq Whisper</span>'
+              : job.video.transcriptSource === 'youtube_captions'
+              ? ' · <span style="color:#10b981;">✓ Legendas Oficiais</span>'
+              : job.video.transcriptSource === 'audio_silence_analysis'
+              ? ' · <span style="color:#34d399;">✓ Análise de Fala FFmpeg</span>'
+              : '';
+          resTitle.innerHTML =
+            `<strong>${escapeHtml(job.video.title)}</strong> · Origem: ${job.video.width}×${job.video.height} (${formatClock(job.video.durationSec)}) · Saída: ${escapeHtml(job.exportSettings?.aspectRatio || '9:16')} (${escapeHtml(job.cuts[0]?.resolutionLabel || '')})${transcriptNote}`;
+        }
+
+        const transcriptBadge = document.getElementById('cf-transcript-badge');
+        if (transcriptBadge) {
+          transcriptBadge.textContent =
+            job.provider && job.provider.includes('groq')
+              ? 'Groq AI + FFmpeg H.264/AAC'
+              : 'FFmpeg H.264 + AAC Validado';
+        }
+
+        renderClipsGrid(job.cuts, job.video?.thumbnail);
+
+        const resultsBox = document.getElementById('cf-results-box');
+        if (resultsBox) {
+          resultsBox.style.display = 'block';
+          resultsBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+
       /* ========================================================================
-         RENDERIZAÇÃO DOS 15 CARDS DE CORTE COM MINIATURA REAL
+         RENDERIZAÇÃO DOS CARDS DE CORTE COM METADADOS REAIS DO MP4
          ======================================================================== */
-      function renderClipsGrid(clips, videoThumb) {
+      function renderClipsGrid(clips, fallbackVideoThumb) {
         const grid = document.getElementById('cf-cards-grid');
-        grid.innerHTML = '';
+        if (!grid) return;
+        grid.textContent = '';
+
+        const frag = document.createDocumentFragment();
+        const scoreTasks = [];
 
         clips.forEach((clip, index) => {
           const card = document.createElement('article');
@@ -2777,21 +5866,30 @@
 
           const captionsHtml = (clip.captionWords || ['O', 'MOMENTO', 'MAIS', 'VIRAL!']).map((w, wIdx) => {
             const isHighlight = (wIdx === 2 || wIdx === 4);
-            return `<span class="cf-cap-word ${isHighlight ? 'cf-cap-highlight' : ''}">${w}</span>`;
+            return `<span class="cf-cap-word ${isHighlight ? 'cf-cap-highlight' : ''}" style="--cap-idx:${wIdx}">${escapeHtml(w)}</span>`;
           }).join('');
 
           const tagsHtml = (clip.tags || ['#shorts', '#cortes']).map(t =>
-            `<button type="button" class="cf-tag-pill" onclick="window.cfCopyTag('${t}')">${t}</button>`
+            `<button type="button" class="cf-tag-pill" onclick="window.cfCopyTag(${JSON.stringify(String(t)).replace(/"/g, '&quot;')})">${escapeHtml(t)}</button>`
           ).join('');
 
-          const thumbMarkup = videoThumb ? `<img src="${videoThumb}" alt="Prévia do corte" class="cf-player-thumb-img" />` : '';
+          const thumbSrc = clip.thumbnailUrl || fallbackVideoThumb || '';
+          const thumbMarkup = thumbSrc
+            ? `<img src="${escapeHtml(thumbSrc)}" alt="Frame real do corte" class="cf-player-thumb-img" loading="lazy" decoding="async" style="opacity:0.55;" />`
+            : '';
+
+          const durDisplay = clip.actualDurationSec ? `${clip.actualDurationSec}s` : `${clip.duration}s`;
+          const metaPill = clip.resolutionLabel
+            ? `<span class="cf-player-pill-meta">${escapeHtml(clip.resolutionLabel)} · ${formatBytes(clip.sizeBytes)}</span>`
+            : '';
 
           card.innerHTML = `
             <div class="cf-card-player">
               ${thumbMarkup}
               <div class="cf-player-overlay"></div>
-              <span class="cf-player-pill-dur">${clip.duration}s</span>
-              <button type="button" class="cf-play-btn" aria-label="Pré-visualizar corte" onclick="window.cfPlayPreview(${clip.rank})">
+              ${metaPill}
+              <span class="cf-player-pill-dur">${escapeHtml(durDisplay)}</span>
+              <button type="button" class="cf-play-btn" aria-label="Reproduzir MP4 real do corte" onclick="window.cfPlayPreview(${Number(clip.rank)})">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z"/>
                 </svg>
@@ -2829,27 +5927,27 @@
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
-              <span>${clip.timeLabel}</span>
+              <span>${escapeHtml(clip.timeLabel)}</span>
             </div>
 
-            <h4 class="cf-card-title">${clip.title}</h4>
-            <p class="cf-card-desc">${clip.desc}</p>
+            <h4 class="cf-card-title">${escapeHtml(clip.title)}</h4>
+            <p class="cf-card-desc">${escapeHtml(clip.desc)}</p>
 
             <div class="cf-tags-row">
               ${tagsHtml}
             </div>
 
             <div class="cf-card-actions">
-              <button type="button" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfDownloadClip(${clip.rank})">
+              <button type="button" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfDownloadClip(${Number(clip.rank)})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="7 10 12 15 17 10"></polyline>
                   <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
-                <span>Baixar corte</span>
+                <span>Baixar MP4 (${formatBytes(clip.sizeBytes)})</span>
               </button>
 
-              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyClipInfo(${clip.rank})">
+              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfCopyClipInfo(${Number(clip.rank)})">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -2859,22 +5957,28 @@
             </div>
           `;
 
-          grid.appendChild(card);
+          frag.appendChild(card);
+          scoreTasks.push({ card, score: clip.score, delay: Math.min(index * 55, 550) });
+        });
 
+        // Atomic single-reflow batch DOM insertion for all cut cards!
+        grid.appendChild(frag);
+
+        scoreTasks.forEach(({ card, score, delay }) => {
           setTimeout(() => {
-            card.style.animation = 'cf-card-cascade 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards';
+            card.style.opacity = '1';
 
             const circle = card.querySelector('.cf-score-circle');
             if (circle) {
               const offset = circle.getAttribute('data-target-offset');
-              setTimeout(() => { circle.style.strokeDashoffset = offset; }, 100);
+              circle.style.strokeDashoffset = offset;
             }
 
             const numEl = card.querySelector('.cf-score-num');
             if (numEl) {
-              setTimeout(() => { animateNumberCount(numEl, clip.score, 1200); }, 100);
+              animateNumberCount(numEl, score, 1050);
             }
-          }, index * 70);
+          }, delay + 80);
         });
       }
 
@@ -2895,18 +5999,259 @@
         requestAnimationFrame(tick);
       }
 
-      window.cfPlayPreview = function (rank) {
-        window.cfShowToast(`Reproduzindo prévia com legendas sincronizadas do Corte #${rank}...`);
+      /* ========================================================================
+         PLAYER REAL DE PRÉ-VISUALIZAÇÃO MP4 E DOWNLOADS VERIFICADOS
+         ======================================================================== */
+      function bindVideoPlayerEvents() {
+        const video = document.getElementById('cf-preview-video-el');
+        const seek = document.getElementById('cf-prev-seek');
+        const vol = document.getElementById('cf-prev-volume');
+        const readout = document.getElementById('cf-prev-time-readout');
+        const playIcon = document.getElementById('cf-prev-play-icon');
+        const volIcon = document.getElementById('cf-prev-vol-icon');
+
+        if (!video) return;
+
+        function syncPlayIcon() {
+          if (!playIcon) return;
+          if (video.paused || video.ended) {
+            playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+          } else {
+            playIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+          }
+        }
+
+        function syncVolIcon() {
+          if (!volIcon) return;
+          if (video.muted || video.volume === 0) {
+            volIcon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>';
+          } else {
+            volIcon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>';
+          }
+        }
+
+        video.addEventListener('play', syncPlayIcon);
+        video.addEventListener('pause', syncPlayIcon);
+        video.addEventListener('ended', syncPlayIcon);
+        video.addEventListener('click', () => window.cfTogglePreviewPlay());
+
+        video.addEventListener('loadedmetadata', () => {
+          if (readout) {
+            readout.textContent = `${formatClock(video.currentTime)} / ${formatClock(video.duration)}`;
+          }
+        });
+
+        video.addEventListener('timeupdate', () => {
+          const dur = video.duration || 0;
+          if (seek && dur > 0) {
+            seek.value = String((video.currentTime / dur) * 100);
+          }
+          if (readout) {
+            readout.textContent = `${formatClock(video.currentTime)} / ${formatClock(dur)}`;
+          }
+        });
+
+        video.addEventListener('volumechange', () => {
+          if (vol && !video.muted) {
+            vol.value = String(video.volume);
+          }
+          syncVolIcon();
+        });
+
+        video.addEventListener('error', () => {
+          const modal = document.getElementById('cf-video-preview-modal');
+          if (modal && modal.classList.contains('cf-modal-open')) {
+            window.cfShowToast('Erro ao carregar o vídeo MP4. O arquivo pode ter expirado.');
+          }
+        });
+
+        if (seek) {
+          seek.addEventListener('input', () => {
+            const dur = video.duration || 0;
+            if (dur > 0) {
+              video.currentTime = (Number(seek.value) / 100) * dur;
+            }
+          });
+        }
+
+        if (vol) {
+          vol.addEventListener('input', () => {
+            const v = Number(vol.value);
+            video.volume = Math.min(1, Math.max(0, v));
+            video.muted = (v === 0);
+          });
+        }
+
+        document.addEventListener('keydown', (e) => {
+          const modal = document.getElementById('cf-video-preview-modal');
+          if (!modal || !modal.classList.contains('cf-modal-open')) return;
+          if (e.key === 'Escape') {
+            window.cfClosePreviewModal();
+          } else if (e.key === ' ' && document.activeElement?.tagName !== 'BUTTON' && document.activeElement?.tagName !== 'INPUT') {
+            e.preventDefault();
+            window.cfTogglePreviewPlay();
+          }
+        });
+      }
+
+      window.cfPlayPreview = async function (rank) {
+        const clip = STATE.currentGeneratedClips.find(c => c.rank === rank);
+        if (!clip || !clip.validated || !clip.previewUrl) {
+          window.cfShowToast('Este corte não possui um arquivo MP4 validado disponível.');
+          return;
+        }
+
+        // Preflight check to ensure the real MP4 exists on the server before opening player
+        try {
+          const check = await fetch(clip.previewUrl, { method: 'HEAD' });
+          if (!check.ok) {
+            window.cfShowToast('O arquivo MP4 desta prévia não está disponível ou expirou.');
+            return;
+          }
+        } catch {
+          window.cfShowToast('Não foi possível verificar o arquivo MP4 no servidor.');
+          return;
+        }
+
+        const modal = document.getElementById('cf-video-preview-modal');
+        const video = document.getElementById('cf-preview-video-el');
+        const rankBadge = document.getElementById('cf-prev-rank-badge');
+        const techBadge = document.getElementById('cf-prev-tech-badge');
+        const titleEl = document.getElementById('cf-prev-title');
+        const dlBtn = document.getElementById('cf-prev-download-btn');
+
+        if (!modal || !video) return;
+
+        if (rankBadge) rankBadge.textContent = `#${String(clip.rank).padStart(2, '0')} · Score ${clip.score}`;
+        if (techBadge) {
+          const codecs = `${(clip.videoCodec || 'h264').toUpperCase()}${clip.audioCodec ? ' + ' + clip.audioCodec.toUpperCase() : ''}`;
+          techBadge.textContent = `${clip.resolutionLabel} · ${clip.actualDurationSec}s · ${formatBytes(clip.sizeBytes)} · ${codecs}`;
+        }
+        if (titleEl) titleEl.textContent = clip.title;
+        if (dlBtn) {
+          dlBtn.onclick = () => window.cfDownloadClip(clip.rank);
+        }
+
+        video.src = clip.previewUrl;
+        video.currentTime = 0;
+        modal.classList.add('cf-modal-open');
+
+        video.play().catch(() => {
+          // User can click Play if browser blocks autoplay
+        });
       };
 
-      window.cfDownloadClip = function (rank) {
-        window.cfShowToast(`Disparando download do arquivo MP4 9:16 do Corte #${rank}...`);
+      window.cfClosePreviewModal = function () {
+        const modal = document.getElementById('cf-video-preview-modal');
+        const video = document.getElementById('cf-preview-video-el');
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        }
+        if (modal) modal.classList.remove('cf-modal-open');
+      };
+
+      window.cfTogglePreviewPlay = function () {
+        const video = document.getElementById('cf-preview-video-el');
+        if (!video) return;
+        if (video.paused || video.ended) {
+          video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      };
+
+      window.cfTogglePreviewMute = function () {
+        const video = document.getElementById('cf-preview-video-el');
+        if (!video) return;
+        video.muted = !video.muted;
+      };
+
+      window.cfPreviewFullscreen = function () {
+        const video = document.getElementById('cf-preview-video-el');
+        if (!video) return;
+        if (video.requestFullscreen) {
+          video.requestFullscreen();
+        } else if (video.webkitRequestFullscreen) {
+          video.webkitRequestFullscreen();
+        }
+      };
+
+      window.cfDownloadClip = async function (rank) {
+        const clip = STATE.currentGeneratedClips.find(c => c.rank === rank);
+        if (!clip || !clip.validated || !clip.downloadUrl) {
+          window.cfShowToast('Arquivo MP4 não encontrado ou não validado para este corte.');
+          return;
+        }
+
+        try {
+          const headRes = await fetch(clip.downloadUrl, { method: 'HEAD' });
+          if (!headRes.ok) {
+            window.cfShowToast('O arquivo MP4 não existe mais no armazenamento ou o link expirou.');
+            return;
+          }
+
+          const a = document.createElement('a');
+          a.href = clip.downloadUrl;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          window.cfShowToast(`Download iniciado: Corte #${String(clip.rank).padStart(2, '0')} (${formatBytes(clip.sizeBytes)})`);
+        } catch {
+          window.cfShowToast('Falha ao validar o download do arquivo MP4 no servidor.');
+        }
+      };
+
+      window.cfDownloadAllZip = async function (overrideJobId) {
+        let zipUrl = STATE.currentJob?.zipDownloadUrl;
+
+        if (overrideJobId) {
+          try {
+            const jobRes = await fetch(`/api/jobs/${encodeURIComponent(overrideJobId)}`);
+            if (!jobRes.ok) {
+              window.cfShowToast('Este processamento já expirou ou não está disponível no servidor.');
+              return;
+            }
+            const jobData = await jobRes.json();
+            zipUrl = jobData?.job?.zipDownloadUrl;
+          } catch {
+            window.cfShowToast('Erro ao consultar pacote ZIP no servidor.');
+            return;
+          }
+        }
+
+        if (!zipUrl) {
+          window.cfShowToast('Nenhum pacote ZIP de cortes validados disponível.');
+          return;
+        }
+
+        try {
+          const check = await fetch(zipUrl, { method: 'HEAD' });
+          if (!check.ok) {
+            window.cfShowToast('Os arquivos MP4 para o pacote ZIP não foram encontrados ou expiraram.');
+            return;
+          }
+
+          const a = document.createElement('a');
+          a.href = zipUrl;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          window.cfShowToast('Gerando e baixando pacote ZIP com todos os arquivos MP4!');
+        } catch {
+          window.cfShowToast('Falha ao iniciar o download do pacote ZIP.');
+        }
       };
 
       window.cfCopyClipInfo = function (rank) {
         const clip = STATE.currentGeneratedClips.find(c => c.rank === rank);
         if (!clip) return;
-        const text = `${clip.title}\n\n${clip.desc}\n\n${clip.tags.join(' ')}`;
+        const text = `${clip.title}\n\n${clip.desc}\n\n${(clip.tags || []).join(' ')}`;
         copyClipboard(text, `Título, descrição e hashtags do Corte #${rank} copiados!`);
       };
 
@@ -2919,12 +6264,69 @@
         const text = STATE.currentGeneratedClips.map(c =>
           `#${String(c.rank).padStart(2, '0')} [Score ${c.score}] (${c.timeLabel}): ${c.title}`
         ).join('\n');
-        copyClipboard(text, 'Todos os 15 ganchos virais copiados!');
+        copyClipboard(text, 'Todos os ganchos virais copiados!');
       };
 
       /* ========================================================================
-         HISTÓRICO DE VÍDEOS PROCESSADOS
+         HISTÓRICO DE VÍDEOS PROCESSADOS (COM REABERTURA REAL & DOWNLOAD ZIP)
          ======================================================================== */
+      async function syncAndRenderHistory() {
+        try {
+          const res = await fetch('/api/jobs');
+          if (res.ok) {
+            const data = await res.json();
+            const serverJobs = (data.jobs || []).filter(j => j.status === 'completed');
+            for (const sj of serverJobs) {
+              const existing = STATE.history.find(h => (h.jobId || h.id) === sj.id);
+              if (!existing) {
+                STATE.history.unshift({
+                  id: sj.id,
+                  jobId: sj.id,
+                  title: sj.video?.title || 'Vídeo Processado',
+                  thumbnail: sj.video?.thumbnail || (sj.cuts[0]?.thumbnailUrl || ''),
+                  author: sj.video?.author || 'Criador',
+                  resolution: sj.cuts[0]?.resolutionLabel || '',
+                  aspectRatio: sj.exportSettings?.aspectRatio || '9:16',
+                  durationSec: sj.video?.durationSec || 0,
+                  date: new Date(sj.completedAt || sj.createdAt).toLocaleDateString('pt-BR', {
+                    day: '2-digit', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  }),
+                  clipsCount: (sj.cuts || []).length
+                });
+              } else if (sj.cuts[0]?.thumbnailUrl) {
+                existing.thumbnail = sj.cuts[0].thumbnailUrl;
+              }
+            }
+            saveLocalStorage();
+          }
+        } catch {
+          // Offline / localStorage fallback
+        }
+        renderHistoryList();
+      }
+
+      window.cfOpenHistoryJob = async function (jobId) {
+        if (!jobId) return;
+        try {
+          const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`);
+          if (!res.ok) {
+            window.cfShowToast('Os arquivos MP4 deste item do histórico já expiraram no servidor.');
+            return;
+          }
+          const data = await res.json();
+          if (!data?.job || data.job.status !== 'completed') {
+            window.cfShowToast('Este processamento não possui cortes ativos disponíveis.');
+            return;
+          }
+          window.cfSwitchDashTab('generator');
+          displayCompletedJobResults(data.job);
+          window.cfShowToast(`Cortes do vídeo "${data.job.video?.title || ''}" carregados!`);
+        } catch {
+          window.cfShowToast('Erro ao carregar os cortes deste processamento.');
+        }
+      };
+
       function renderHistoryList() {
         const list = document.getElementById('cf-history-list');
         if (!list) return;
@@ -2940,7 +6342,7 @@
               </div>
               <h4 style="font-size: 1.25rem; font-weight: 700; color: #ffffff; margin-bottom: 0.5rem;">Nenhum vídeo processado ainda</h4>
               <p style="color: var(--cf-text-muted); font-size: 0.92rem; margin-bottom: 1.5rem; max-width: 440px; margin-left: auto; margin-right: auto;">
-                Cole a URL de qualquer vídeo do YouTube na aba "Gerar cortes" para extrair seus primeiros 15 clipes com IA.
+                Envie um arquivo de vídeo na aba "Gerar cortes" para renderizar seus primeiros clipes MP4 reais com FFmpeg e IA.
               </p>
               <button type="button" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfSwitchDashTab('generator')">
                 Processar meu primeiro vídeo
@@ -2950,23 +6352,38 @@
           return;
         }
 
-        list.innerHTML = STATE.history.map(item => `
-          <div class="cf-glass-card cf-history-item">
-            <div style="display: flex; align-items: center; gap: 1rem;">
-              ${item.thumbnail ? `<img src="${item.thumbnail}" style="width: 72px; height: 48px; border-radius: 8px; object-fit: cover;" alt="thumb" />` : ''}
-              <div>
-                <div class="cf-history-title">${item.title}</div>
-                <div class="cf-history-meta">${item.url} · ${item.date}</div>
+        list.innerHTML = STATE.history.map(item => {
+          const jobId = item.jobId || item.id || '';
+          const hasRealJob = String(jobId).startsWith('job_');
+          const specText = [item.aspectRatio, item.resolution, item.date].filter(Boolean).join(' · ');
+
+          return `
+            <div class="cf-glass-card cf-history-item">
+              <div style="display: flex; align-items: center; gap: 1rem; min-width: 0;">
+                ${item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" loading="lazy" decoding="async" style="width: 72px; height: 48px; border-radius: 8px; object-fit: cover; flex-shrink: 0;" alt="thumb" />` : ''}
+                <div style="min-width: 0;">
+                  <div class="cf-history-title">${escapeHtml(item.title)}</div>
+                  <div class="cf-history-meta">${escapeHtml(specText || item.url || '')}</div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+                <span class="cf-nav-badge">${Number(item.clipsCount || 0)} cortes MP4</span>
+                ${hasRealJob ? `
+                  <button type="button" class="cf-btn cf-btn-primary cf-btn-sm cf-sheen" onclick="window.cfOpenHistoryJob('${escapeHtml(jobId)}')">
+                    Ver prévias & MP4
+                  </button>
+                  <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfDownloadAllZip('${escapeHtml(jobId)}')">
+                    Baixar ZIP
+                  </button>
+                ` : `
+                  <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfSwitchDashTab('generator')">
+                    Novo vídeo
+                  </button>
+                `}
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.85rem;">
-              <span class="cf-nav-badge">${item.clipsCount} cortes virais</span>
-              <button type="button" class="cf-btn cf-btn-ghost cf-btn-sm" onclick="window.cfSwitchDashTab('generator'); window.cfShowToast('Pronto para novo vídeo!');">
-                Processar outro
-              </button>
-            </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
 
       window.cfClearHistory = function () {
@@ -3050,7 +6467,6 @@
             throw new Error('Falha no simulador de pagamento');
           }
         } catch (e) {
-          // Fallback local
           STATE.userPlan = STATE.pendingModalPlan;
           saveLocalStorage();
           window.cfCloseUpgradeModal();
@@ -3063,7 +6479,7 @@
         STATE.usageCount = 0;
         saveLocalStorage();
         updateGlobalUI();
-        window.cfShowToast('Contador de vídeos zerado para testes no modo demo!');
+        window.cfShowToast('Contador de vídeos zerado para testes!');
       };
 
       /* ========================================================================
@@ -3081,7 +6497,7 @@
 
         toastTimer = setTimeout(() => {
           toast.classList.remove('cf-toast-show');
-        }, 2500);
+        }, 3200);
       };
 
       function copyClipboard(text, successMsg) {
@@ -3128,5 +6544,408 @@
 
     })();
   </script>
+
+  <!-- ========================================================================
+       ADMIN PRELOADER — APPLE-STYLE HIGH-SECURITY LOADING SCREEN (3s)
+       ======================================================================== -->
+  <div id="cf-admin-loader-screen" aria-label="Carregando acesso de segurança máxima" role="status">
+    <div class="cf-admin-loader-ring-wrap" aria-hidden="true">
+      <div class="cf-admin-loader-ring"></div>
+      <div class="cf-admin-loader-core" aria-hidden="true"></div>
+    </div>
+    <div class="cf-admin-loader-label">Verificando acesso de segurança máxima</div>
+    <div class="cf-admin-loader-sub">Criptografia Scrypt · 2FA PIN · Recuperação de chave</div>
+  </div>
+
+  <!-- ========================================================================
+       PAINEL ADMIN — ACESSO TOTAL COM SEGURANÇA MÁXIMA
+       ======================================================================== -->
+  <div id="cf-admin-overlay" class="cf-admin-overlay" aria-modal="true" role="dialog" aria-label="Painel Administrador" style="display:none;" onclick="if(event.target===this) window.cfCloseAdminOverlay();">
+    <div class="cf-admin-panel" onclick="event.stopPropagation();">
+      <div class="cf-admin-header">
+        <h2>🔒 Painel Admin</h2>
+        <p>Acesso total · Segurança máxima</p>
+        <button onclick="window.cfCloseAdminOverlay()" class="cf-admin-close" aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="cf-admin-body">
+        <!-- Bootstrap / Auth Section -->
+        <section class="cf-admin-section" id="cf-admin-auth-section">
+          <h3>Autenticação</h3>
+          <form id="cf-admin-login-form" onsubmit="event.preventDefault(); window.cfAdminLogin();">
+            <input type="email" id="cf-admin-email" placeholder="Email do admin" class="cf-admin-input" required />
+            <input type="password" id="cf-admin-password" placeholder="Senha mestra" class="cf-admin-input" required />
+            <input type="text" id="cf-admin-pin" placeholder="PIN 2FA (6 dígitos)" class="cf-admin-input" maxlength="6" required />
+            <button type="submit" class="cf-admin-btn">Entrar no Painel</button>
+          </form>
+          <div class="cf-admin-links">
+            <button onclick="window.cfShowAdminRecovery()" class="cf-admin-link">Recuperar via chave</button>
+          </div>
+        </section>
+
+        <!-- Active Session Sections -->
+        <section class="cf-admin-section" id="cf-admin-control-section" style="display:none;">
+          <h3>Design & Configuração</h3>
+          <div class="cf-admin-row">
+            <label>Tema Ativo:</label>
+            <div class="cf-admin-pill-group">
+              <button onclick="window.cfSetDesign('classic')" id="cf-design-classic" class="cf-admin-pill active">Classic</button>
+              <button onclick="window.cfSetDesign('v2')" id="cf-design-v2" class="cf-admin-pill">Novo Designer</button>
+            </div>
+          </div>
+          <div class="cf-admin-row">
+            <label>Prévia Design:</label>
+            <span id="cf-admin-design-preview" style="font-size:0.85rem;color:#b8aba4;">Classic ativo · Alternar para visualizar</span>
+          </div>
+          <hr style="border-color:rgba(255,255,255,0.08);margin:1rem 0;"/>
+          <h3>Controle Total</h3>
+          <div class="cf-admin-grid">
+            <button onclick="window.cfAdminOverview()" class="cf-admin-card"><strong>Visão Geral</strong><span>Servidor, FFmpeg, jobs</span></button>
+            <button onclick="window.cfAdminSiteConfig()" class="cf-admin-card"><strong>Config do Site</strong><span>Manutenção, limites</span></button>
+            <button onclick="window.cfAdminCancelJobs()" class="cf-admin-card"><strong>Cancelar Jobs</strong><span>Parar processamentos</span></button>
+            <button onclick="window.cfAdminStoragePurge()" class="cf-admin-card"><strong>Limpar Armazenamento</strong><span>Remover arquivos inativos</span></button>
+            <button onclick="window.cfAdminRotateCredentials()" class="cf-admin-card"><strong>Rotacionar Credenciais</strong><span>Atualizar PIN e chave</span></button>
+            <button onclick="window.cfAdminSecurityAudit()" class="cf-admin-card"><strong>Auditoria & IP</strong><span>Logs de segurança</span></button>
+            <button onclick="window.cfAdminPanicLockdown()" class="cf-admin-card cf-admin-danger"><strong>Bloqueio de Pânico</strong><span>Bloquear tudo imediatamente</span></button>
+          </div>
+        </section>
+
+        <!-- Recovery -->
+        <section class="cf-admin-section" id="cf-admin-recovery-section" style="display:none;">
+          <h3>Recuperação via Chave</h3>
+          <form id="cf-admin-recovery-form" onsubmit="event.preventDefault(); window.cfAdminRecover();">
+            <input type="text" id="cf-admin-recovery-key" placeholder="Chave de recuperação (24 chars)" class="cf-admin-input" maxlength="24" required />
+            <button type="submit" class="cf-admin-btn">Recuperar Conta</button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+
+
+
+  <script>
+    (function() {
+      "use strict";
+
+      // ======================================================================
+      // NOVO DESIGNER v2 — CAUSTIC CANVAS + DESIGN SWITCH
+      // ======================================================================
+      function initV2Caustic() {
+        const canvas = document.getElementById('cf-v2-caustic');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let w = window.innerWidth, h = window.innerHeight;
+        function resize() { w = window.innerWidth; h = window.innerHeight; canvas.width = w; canvas.height = h; }
+        resize();
+        window.addEventListener('resize', resize);
+        let t = 0;
+        function draw() {
+          t += 0.006;
+          ctx.clearRect(0, 0, w, h);
+          const cx = w * 0.5, cy = h * 0.42;
+          const rx = Math.min(w, h) * 0.55;
+          // Deep obsidian base
+          const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx * 2.2);
+          grad.addColorStop(0, '#020203');
+          grad.addColorStop(0.4, '#030201');
+          grad.addColorStop(1, '#000000');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+
+          // Tilted elliptical volumetric caustic ring
+          const ringAngle = Math.PI / 5.5; // tilted
+          const ringCX = cx + Math.sin(t * 0.3) * 40;
+          const ringCY = cy + Math.cos(t * 0.25) * 30;
+          const ringRX = rx + Math.sin(t * 0.5) * 40;
+          const ringRY = rx * 0.65 + Math.cos(t * 0.4) * 25;
+
+          ctx.save();
+          ctx.translate(ringCX, ringCY);
+          ctx.rotate(ringAngle + Math.sin(t * 0.15) * 0.05);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, ringRX, ringRY, 0, 0, Math.PI * 2);
+          // Copper-amber left/bottom sweep
+          const sweepGrad = ctx.createLinearGradient(-ringRX, ringRY * 0.4, ringRX * 0.6, -ringRY * 0.5);
+          sweepGrad.addColorStop(0, 'rgba(59,31,11,0.35)');
+          sweepGrad.addColorStop(0.35, 'rgba(118,60,12,0.45)');
+          sweepGrad.addColorStop(0.65, 'rgba(177,99,20,0.55)');
+          sweepGrad.addColorStop(1, 'rgba(149,70,15,0.15)');
+          ctx.strokeStyle = sweepGrad;
+          ctx.lineWidth = 28;
+          ctx.stroke();
+          // Inner glow
+          ctx.beginPath();
+          ctx.ellipse(0, 0, ringRX * 0.82, ringRY * 0.82, 0, 0, Math.PI * 2);
+          const innerGrad = ctx.createLinearGradient(-ringRX * 0.3, -ringRY * 0.2, ringRX * 0.5, ringRY * 0.2);
+          innerGrad.addColorStop(0, 'rgba(177,99,20,0.25)');
+          innerGrad.addColorStop(0.5, 'rgba(223,106,26,0.35)');
+          innerGrad.addColorStop(1, 'rgba(177,99,20,0.1)');
+          ctx.strokeStyle = innerGrad;
+          ctx.lineWidth = 12;
+          ctx.stroke();
+          ctx.restore();
+
+          // Amethyst-violet dispersion arc (right)
+          const amCX = cx + rx * 0.42 + Math.sin(t * 0.2) * 20;
+          const amCY = cy - rx * 0.05 + Math.cos(t * 0.18) * 15;
+          const amRX = rx * 0.45;
+          const amRY = rx * 0.28;
+          ctx.save();
+          ctx.translate(amCX, amCY);
+          ctx.rotate(-0.35 + Math.sin(t * 0.12) * 0.08);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, amRX, amRY, 0, 0, Math.PI * 2);
+          const amGrad = ctx.createLinearGradient(-amRX * 0.3, -amRY, amRX * 0.5, amRY * 0.6);
+          amGrad.addColorStop(0, 'rgba(43,26,54,0.25)');
+          amGrad.addColorStop(0.4, 'rgba(88,52,104,0.45)');
+          amGrad.addColorStop(0.7, 'rgba(188,114,117,0.4)');
+          amGrad.addColorStop(1, 'rgba(83,52,104,0.15)');
+          ctx.strokeStyle = amGrad;
+          ctx.lineWidth = 18;
+          ctx.stroke();
+          ctx.restore();
+
+          // Sun core (top-right amber)
+          const sunCX = cx + rx * 0.35;
+          const sunCY = cy - rx * 0.45;
+          const sunGrad = ctx.createRadialGradient(sunCX, sunCY, 0, sunCX, sunCY, rx * 0.35);
+          sunGrad.addColorStop(0, 'rgba(149,70,15,0.6)');
+          sunGrad.addColorStop(0.3, 'rgba(223,106,26,0.35)');
+          sunGrad.addColorStop(0.7, 'rgba(177,99,20,0.15)');
+          sunGrad.addColorStop(1, 'transparent');
+          ctx.fillStyle = sunGrad;
+          ctx.fillRect(0, 0, w, h);
+
+          // Fine stardust grain overlay (procedural)
+          for (let i = 0; i < 400; i++) {
+            const gx = Math.random() * w, gy = Math.random() * h;
+            const alpha = Math.random() * 0.15 + 0.02;
+            ctx.fillStyle = `rgba(255,230,200,${alpha})`;
+            ctx.fillRect(gx, gy, 1.2 + Math.random() * 1.8, 1.2 + Math.random() * 1.8);
+          }
+
+          requestAnimationFrame(draw);
+        }
+        requestAnimationFrame(draw);
+      }
+
+      // ======================================================================
+      // DESIGN SWITCH — SYNCHRONIZES FRONTEND + CALLS BACKEND /api/site-config
+      // ======================================================================
+      window.cfSetDesign = async function (design) {
+        try {
+          const res = await fetch('/api/site-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CF-Admin-CSRF': 'cf-admin-csrf-token' },
+            body: JSON.stringify({ design })
+          });
+          if (!res.ok) throw new Error('Falha na API');
+          const html = document.documentElement;
+          if (design === 'v2') {
+            html.setAttribute('data-cf-design', 'v2');
+            document.getElementById('cf-v2-stage').style.display = 'flex';
+            document.getElementById('cf-v2-caustic') && initV2Caustic();
+          } else {
+            html.removeAttribute('data-cf-design');
+            document.getElementById('cf-v2-stage').style.display = 'none';
+          }
+          const btnC = document.getElementById('cf-design-classic');
+          const btnV = document.getElementById('cf-design-v2');
+          if (btnC && btnV) {
+            btnC.classList.toggle('active', design === 'classic');
+            btnV.classList.toggle('active', design === 'v2');
+          }
+          const preview = document.getElementById('cf-admin-design-preview');
+          if (preview) preview.textContent = (design === 'v2') ? 'Novo Designer ativo · 100% foto-fiel' : 'Classic ativo · Design original';
+        } catch (e) {
+          console.error('Design switch error:', e);
+          // Fallback local only
+          const html = document.documentElement;
+          if (design === 'v2') html.setAttribute('data-cf-design', 'v2'); else html.removeAttribute('data-cf-design');
+        }
+      };
+
+      // ======================================================================
+      // ADMIN OVERLAY
+      // ======================================================================
+      window.cfOpenAdminOverlay = function() {
+        const loader = document.getElementById('cf-admin-loader-screen');
+        const overlay = document.getElementById('cf-admin-overlay');
+        if (loader) loader.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        setTimeout(function() {
+          if (loader) loader.classList.remove('active');
+          if (overlay) overlay.style.display = 'flex';
+        }, 3000);
+      };
+      window.cfCloseAdminOverlay = function() {
+        const overlay = document.getElementById('cf-admin-overlay');
+        if (overlay) overlay.style.display = 'none';
+        document.body.style.overflow = '';
+      };
+      window.cfShowAdminRecovery = function() {
+        document.getElementById('cf-admin-auth-section').style.display = 'none';
+        document.getElementById('cf-admin-control-section').style.display = 'none';
+        document.getElementById('cf-admin-recovery-section').style.display = 'block';
+      };
+
+      // ======================================================================
+      // ADMIN AUTH (calls backend /api/admin/login with scrypt + 2FA PIN verification)
+      // ======================================================================
+      window.cfAdminLogin = async function() {
+        const email = document.getElementById('cf-admin-email').value.trim();
+        const pw = document.getElementById('cf-admin-password').value;
+        const pin = document.getElementById('cf-admin-pin').value.trim();
+        if (!email || !pw || !pin || pin.length !== 6) {
+          alert('Preencha todos os campos. PIN deve ter 6 dígitos.');
+          return;
+        }
+        try {
+          const res = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CF-Admin-CSRF': 'cf-admin-csrf-token' },
+            body: JSON.stringify({ email, password: pw, pin })
+          });
+          const data = await res.json();
+          if (res.ok && data.session) {
+            document.getElementById('cf-admin-auth-section').style.display = 'none';
+            document.getElementById('cf-admin-control-section').style.display = 'block';
+            document.getElementById('cf-admin-recovery-section').style.display = 'none';
+            // Load current site config
+            try {
+              const cfg = await fetch('/api/site-config');
+              const cfgData = await cfg.json();
+              const design = cfgData?.design || 'classic';
+              window.cfSetDesign(design);
+            } catch (_) {}
+          } else {
+            alert('Autenticação falhou: ' + (data.error || 'Credenciais inválidas ou PIN incorreto.'));
+          }
+        } catch (e) {
+          alert('Erro na conexão com o painel admin.');
+          console.error(e);
+        }
+      };
+      window.cfAdminRecover = async function() {
+        const key = document.getElementById('cf-admin-recovery-key').value.trim();
+        try {
+          const res = await fetch('/api/admin/recover', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CF-Admin-CSRF': 'cf-admin-csrf-token' },
+            body: JSON.stringify({ recoveryKey: key })
+          });
+          const data = await res.json();
+          if (res.ok && data.session) {
+            alert('Recuperação bem-sucedida! Acesso restabelecido.');
+            document.getElementById('cf-admin-recovery-section').style.display = 'none';
+            document.getElementById('cf-admin-auth-section').style.display = 'none';
+            document.getElementById('cf-admin-control-section').style.display = 'block';
+          } else {
+            alert('Recuperação falhou: ' + (data.error || 'Chave inválida'));
+          }
+        } catch (e) {
+          alert('Erro de rede.');
+        }
+      };
+
+      // ======================================================================
+      // ADMIN CONTROL FUNCTIONS (API endpoints backed by adminVault.ts)
+      // ======================================================================
+      window.cfAdminOverview = async function() {
+        try {
+          const res = await fetch('/api/admin/overview', { headers: { 'X-CF-Admin-CSRF': 'cf-admin-csrf-token' } });
+          const data = await res.json();
+          alert('Visão Geral Admin:
+' + JSON.stringify(data, null, 2));
+        } catch (e) { alert('Erro ao buscar overview.'); }
+      };
+      window.cfAdminSiteConfig = async function() {
+        try {
+          const res = await fetch('/api/admin/site-config', { headers: { 'X-CF-Admin-CSRF': 'cf-admin-csrf-token' } });
+          const data = await res.json();
+          alert('Config Site:
+' + JSON.stringify(data, null, 2));
+        } catch (e) { alert('Erro ao buscar site-config.'); }
+      };
+      window.cfAdminCancelJobs = async function() {
+        try {
+          const res = await fetch('/api/admin/cancel-all-jobs', { method: 'POST', headers: { 'X-CF-Admin-CSRF': 'cf-admin-csrf-token', 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+          const data = await res.json();
+          alert('Cancelamento: ' + (data.message || 'Todos os jobs ativos cancelados'));
+        } catch (e) { alert('Erro ao cancelar jobs.'); }
+      };
+      window.cfAdminStoragePurge = async function() {
+        if (!confirm('Confirmar purga de armazenamento de jobs inativos?')) return;
+        try {
+          const res = await fetch('/api/admin/storage/purge', { method: 'POST', headers: { 'X-CF-Admin-CSRF': 'cf-admin-csrf-token', 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+          const data = await res.json();
+          alert('Purga: ' + (data.message || 'Armazenamento limpo'));
+        } catch (e) { alert('Erro na purga.'); }
+      };
+      window.cfAdminRotateCredentials = async function() {
+        if (!confirm('Confirmar rotação de credenciais?')) return;
+        try {
+          const res = await fetch('/api/admin/security/rotate-credentials', { method: 'POST', headers: { 'X-CF-Admin-CSRF': 'cf-admin-csrf-token', 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+          const data = await res.json();
+          alert('Rotação: ' + (data.message || 'Credenciais rotacionadas'));
+        } catch (e) { alert('Erro na rotação.'); }
+      };
+      window.cfAdminSecurityAudit = async function() {
+        try {
+          const res = await fetch('/api/admin/security-audit', { headers: { 'X-CF-Admin-CSRF': 'cf-admin-csrf-token' } });
+          const data = await res.json();
+          alert('Auditoria: ' + (data.message || JSON.stringify({ auditLog: (data.auditLog || []).length, lockedIps: (data.lockedIps || []).length }, null, 2)));
+        } catch (e) { alert('Erro na auditoria.'); }
+      };
+      window.cfAdminPanicLockdown = async function() {
+        if (!confirm('BLOQUEIO DE PÂNICO: Confirmar bloqueio total do sistema?')) return;
+        try {
+          const res = await fetch('/api/admin/security/panic-lockdown', { method: 'POST', headers: { 'X-CF-Admin-CSRF': 'cf-admin-csrf-token', 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+          const data = await res.json();
+          alert('Pânico: ' + (data.message || 'Sistema bloqueado'));
+        } catch (e) { alert('Erro no bloqueio.'); }
+      };
+
+      // ======================================================================
+      // KEYBOARD SHORTCUTS & QUICK SWITCH PILL
+      // ======================================================================
+      document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+          e.preventDefault();
+          window.cfOpenAdminOverlay();
+        }
+      });
+
+      // Quick admin pill in header (only when auth cookie present)
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          if (document.cookie.indexOf('__cf_admin_sid=') > -1) {
+            const navGuest = document.getElementById('cf-nav-guest');
+            if (navGuest) {
+              const pill = document.createElement('button');
+              pill.className = 'cf-admin-quick-pill';
+              pill.innerHTML = 'Admin';
+              pill.style.cssText = 'margin-left:8px;padding:4px 14px;border-radius:100px;background:linear-gradient(135deg,#df6a1a,#bfa000);border:1px solid rgba(255,255,255,0.2);color:#fff;font-weight:700;font-size:0.78rem;cursor:pointer;';
+              pill.onclick = () => window.cfOpenAdminOverlay();
+              navGuest.appendChild(pill);
+            }
+          }
+          // Also check if v2 should be active
+          fetch('/api/site-config', { headers: { 'Accept': 'application/json' } })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data && data.design === 'v2') {
+                window.cfSetDesign('v2');
+              }
+            })
+            .catch(() => {});
+        }, 300);
+      });
+
+    })();
+  </script>
+
+  <script type="module" src="/src/glass/initSiteGlass.ts"></script>
 </body>
 </html>
